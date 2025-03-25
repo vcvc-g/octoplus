@@ -1,0 +1,20 @@
+# Development Dockerfile with hot reloading
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies and additional required packages
+RUN npm install && npm install --save react-router-dom lucide-react
+
+# Copy the rest of the code (or use volumes for development)
+COPY . .
+
+# Expose port for development server
+EXPOSE 3000
+
+# Start development server with hot reloading
+CMD ["npm", "start"]

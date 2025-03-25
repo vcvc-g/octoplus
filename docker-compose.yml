@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  # Frontend service (React application)
+  university-explorer:
+    build: .
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+
+  # Development service with hot reloading
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true # For better hot-reloading in Docker
+    command: npm start
+
+  # If you add a backend API, uncomment and modify this section
+  # api:
+  #   build: ./api
+  #   ports:
+  #     - "4000:4000"
+  #   environment:
+  #     - NODE_ENV=production
+  #   volumes:
+  #     - api-data:/data
+  #   restart: unless-stopped
+
+# Uncomment if you need persistent storage
+# volumes:
+#   api-data:
