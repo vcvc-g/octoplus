@@ -8,13 +8,14 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies and additional required packages
-RUN npm install && npm install --save react-router-dom lucide-react
+RUN npm install && npm install --save react-router-dom lucide-react socket.io-client axios socket.io winston
 
-# Copy the rest of the code (or use volumes for development)
+# Copy the rest of the code
 COPY . .
 
-# Expose port for development server
+# Expose ports for development server and Socket.IO
 EXPOSE 3000
+EXPOSE 3001
 
 # Start development server with hot reloading
 CMD ["npm", "start"]

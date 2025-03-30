@@ -20,21 +20,34 @@ services:
       - ./public:/app/public
     ports:
       - "3000:3000"
+      - "3001:3001"  # Socket.IO port
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true # For better hot-reloading in Docker
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_API_URL=${LLM_API_URL}
+      - LLM_MODEL=${LLM_MODEL}
     command: npm start
 
-  # If you add a backend API, uncomment and modify this section
-  # api:
-  #   build: ./api
-  #   ports:
-  #     - "4000:4000"
-  #   environment:
-  #     - NODE_ENV=production
-  #   volumes:
-  #     - api-data:/data
-  #   restart: unless-stopped
+  # Backend API for voice processing
+  voice-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_API_URL=${LLM_API_URL}
+      - LLM_MODEL=${LLM_MODEL}
+      - LOG_LEVEL=info  # Can be debug, info, warn, error
+    volumes:
+      - ./src:/app/src
+      - ./logs:/app/logs  # Mount logs directory for persistence
+    command: node src/server.js
+    restart: unless-stopped
 
 # Uncomment if you need persistent storage
 # volumes:
