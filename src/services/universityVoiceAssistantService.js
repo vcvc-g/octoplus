@@ -1,8 +1,7 @@
-// src/services/voiceAssistantService.js
-
+// src/services/universityVoiceAssistantService.js
 import { io } from "socket.io-client";
 
-class VoiceAssistantService {
+class UniversityVoiceAssistantService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
@@ -17,30 +16,38 @@ class VoiceAssistantService {
 
   /**
    * Initialize the voice assistant service
-   * @param {string} serverUrl - Socket.io server URL (optional)
    * @returns {Promise} - Resolves when connection is established
    */
-  initialize(serverUrl = '') {
+  initialize() {
     return new Promise((resolve, reject) => {
       try {
-        // Use the current host if no server URL is provided
-        const url = serverUrl || window.location.origin;
+        // Connect to the voice-api service using the container name in Docker
+        const voiceApiUrl = process.env.NODE_ENV === 'production'
+          ? window.location.origin  // Use the same origin in production
+          : 'http://localhost:4000'; // Use localhost in development
+        console.log('Connecting to voice API at:', voiceApiUrl);
 
-        // Initialize socket connection
-        this.socket = io(url);
+        // Initialize socket connection with explicit URL
+        this.socket = io(voiceApiUrl);
 
         // Set up default event handlers
         this.socket.on('connect', () => {
-          console.log('Connected to voice assistant server');
+          console.log('Connected to university voice assistant server');
           this.isConnected = true;
           this._triggerEvent('connect');
           resolve();
         });
 
         this.socket.on('disconnect', () => {
-          console.log('Disconnected from voice assistant server');
+          console.log('Disconnected from university voice assistant server');
           this.isConnected = false;
           this._triggerEvent('disconnect');
+        });
+
+        this.socket.on('connect_error', (error) => {
+          console.error('Connection error:', error);
+          this.isConnected = false;
+          reject(error);
         });
 
         this.socket.on('processingStart', () => {
@@ -52,17 +59,11 @@ class VoiceAssistantService {
         });
 
         this.socket.on('error', (data) => {
-          console.error('Voice assistant error:', data);
+          console.error('University voice assistant error:', data);
           this._triggerEvent('error', data);
         });
-
-        this.socket.on('connect_error', (error) => {
-          console.error('Connection error:', error);
-          this.isConnected = false;
-          reject(error);
-        });
       } catch (error) {
-        console.error('Failed to initialize voice assistant service:', error);
+        console.error('Failed to initialize university voice assistant service:', error);
         reject(error);
       }
     });
@@ -148,6 +149,6 @@ class VoiceAssistantService {
 }
 
 // Create a singleton instance
-const voiceAssistantService = new VoiceAssistantService();
+const universityVoiceAssistantService = new UniversityVoiceAssistantService();
 
-export default voiceAssistantService;
+export default universityVoiceAssistantService;

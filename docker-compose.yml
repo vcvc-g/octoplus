@@ -1,13 +1,25 @@
 version: '3'
 
+networks:
+  app-network:
+    driver: bridge
+
 services:
   # Frontend service (React application)
   university-explorer:
     build: .
+    container_name: university-explorer
     ports:
       - "3000:80"
     environment:
       - NODE_ENV=production
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+    depends_on:
+      - voice-api
+    networks:
+      - app-network
     restart: unless-stopped
 
   # Development service with hot reloading
@@ -15,6 +27,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: university-explorer-dev
     volumes:
       - ./src:/app/src
       - ./public:/app/public
@@ -24,31 +37,35 @@ services:
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true # For better hot-reloading in Docker
-      - LLM_API_KEY=${LLM_API_KEY}
-      - LLM_API_URL=${LLM_API_URL}
-      - LLM_MODEL=${LLM_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
     command: npm start
+    networks:
+      - app-network
 
   # Backend API for voice processing
   voice-api:
     build:
       context: .
       dockerfile: Dockerfile.dev
+    container_name: university-voice-api
     ports:
       - "4000:4000"
     environment:
       - NODE_ENV=production
       - PORT=4000
-      - LLM_API_KEY=${LLM_API_KEY}
-      - LLM_API_URL=${LLM_API_URL}
-      - LLM_MODEL=${LLM_MODEL}
-      - LOG_LEVEL=info  # Can be debug, info, warn, error
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_URL=${OPENAI_API_URL}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - LOG_LEVEL=info
     volumes:
       - ./src:/app/src
       - ./logs:/app/logs  # Mount logs directory for persistence
     command: node src/server.js
+    networks:
+      - app-network
     restart: unless-stopped
 
-# Uncomment if you need persistent storage
-# volumes:
-#   api-data:
+volumes:
+  logs:

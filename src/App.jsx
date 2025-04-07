@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx - Updated with Voice Chat integration
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext';
@@ -9,7 +9,7 @@ import { StudentProfile } from './components/student';
 import { UniversityGrid, UniversityDetails } from './components/university';
 import { BackgroundEffects, Header } from './components/ui';
 import Sidebar from './components/ui/Sidebar';
-import VoiceChat from './pages/VoiceChat';
+import UniversityVoiceChat from './pages/UniversityVoiceChat';
 
 // Create a UniversityExplorer component for the main page
 const UniversityExplorer = () => {
@@ -87,7 +87,7 @@ function App() {
           <div className="flex-1 overflow-hidden">
             <Routes>
               <Route path="/" element={<UniversityExplorer />} />
-              <Route path="/voice-chat" element={<VoiceChat />} />
+              <Route path="/voice-chat" element={<UniversityVoiceChat />} />
             </Routes>
           </div>
         </div>
