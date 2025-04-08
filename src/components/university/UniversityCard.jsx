@@ -25,6 +25,11 @@ const UniversityCard = ({
     ));
   };
 
+  // Format numbers with commas
+  const formatNumber = (num) => {
+    return num ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : 'N/A';
+  };
+
   // Determine card background based on admission chances
   const getCardBackground = () => {
     if (isSelected) {
@@ -85,6 +90,24 @@ const UniversityCard = ({
         </div>
       </div>
 
+      {/* New section: Student information */}
+      {university.studentCount && (
+        <div className="bg-gray-800/40 p-2 rounded mb-2 text-xs">
+          <div className="flex justify-between items-center">
+            <span className="text-gray-400">Students:</span>
+            <span className="font-medium">{formatNumber(university.studentCount)}</span>
+          </div>
+
+          {/* Show tuition if available */}
+          {university.tuitionInState > 0 && (
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-gray-400">Tuition:</span>
+              <span className="font-medium">${formatNumber(university.tuitionInState)}/yr</span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-auto text-xs">
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-400">QS Rank:</span>
@@ -98,6 +121,14 @@ const UniversityCard = ({
           <span className="text-gray-400">Prestige:</span>
           <span>{prestigeStars(getPrestigeLevel(university.qsRank))}</span>
         </div>
+
+        {/* SAT Range if available */}
+        {university.satRange && university.satRange.min > 0 && (
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-gray-400">SAT Range:</span>
+            <span className="font-medium">{university.satRange.min}-{university.satRange.max}</span>
+          </div>
+        )}
 
         <div className={`mt-2 text-center py-1 rounded-full text-xs font-medium
           ${admissionChance.score >= 80

@@ -1,10 +1,8 @@
-// src/App.jsx - Updated with Voice Chat integration
+// src/App.jsx - Updated with pagination and enhanced search
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext';
-import { universities } from './data/universities';
-import { filterOptions } from './data/filterOptions';
-import { useUniversityFilter } from './hooks/useUniversityFilter';
+import { useCollegeData } from './hooks/useCollegeData';
 import { StudentProfile } from './components/student';
 import { UniversityGrid, UniversityDetails } from './components/university';
 import { BackgroundEffects, Header } from './components/ui';
@@ -16,18 +14,58 @@ const UniversityExplorer = () => {
   const animateBackground = true;
   const [highlightGlow, setHighlightGlow] = useState(false);
   const [selectedUniversity, setSelectedUniversity] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRegion, setFilterRegion] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [filterAcceptance, setFilterAcceptance] = useState(0);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
+  // Use the enhanced hook to fetch university data
   const {
-    searchTerm,
-    setSearchTerm,
-    filterRegion,
-    setFilterRegion,
-    filterType,
-    setFilterType,
-    filterAcceptance,
-    setFilterAcceptance,
-    filteredUniversities
-  } = useUniversityFilter(universities);
+    universities,
+    loading,
+    error,
+    hasAPIAccess,
+    fetchUniversities,
+    fetchUniversityById,
+    pagination
+  } = useCollegeData();
+
+  // Fetch detailed data when a university is selected
+  useEffect(() => {
+    if (selectedUniversity) {
+      const fetchDetailedUniversity = async () => {
+        try {
+          const detailedUniversity = await fetchUniversityById(selectedUniversity.id);
+          if (detailedUniversity) {
+            setSelectedUniversity(detailedUniversity);
+          }
+        } catch (err) {
+          console.error("Failed to fetch detailed university data:", err);
+        }
+      };
+
+      fetchDetailedUniversity();
+    }
+  }, [selectedUniversity?.id, fetchUniversityById]);
+
+  // Apply filters when they change
+  const applyFilters = () => {
+    fetchUniversities({
+      searchTerm,
+      filterRegion,
+      filterType,
+      filterAcceptance,
+      page: 1 // Reset to first page on filter change
+    });
+  };
+
+  // Handle page change
+  const handlePageChange = (page) => {
+    if (pagination) {
+      pagination.goToPage(page);
+    }
+  };
 
   // Background animation effect
   useEffect(() => {
@@ -43,7 +81,15 @@ const UniversityExplorer = () => {
       {/* Animated background elements */}
       <BackgroundEffects animateBackground={animateBackground} />
 
-      {/* Header */}
+      {/* API Status Banner (only show if there's an error) */}
+      {error && (
+        <div className="bg-red-900/80 text-white text-sm py-1 px-4 text-center">
+          {error}
+          {!hasAPIAccess && " Using demo data instead."}
+        </div>
+      )}
+
+      {/* Enhanced Header with advanced search */}
       <Header
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
@@ -53,6 +99,9 @@ const UniversityExplorer = () => {
         setFilterType={setFilterType}
         filterAcceptance={filterAcceptance}
         setFilterAcceptance={setFilterAcceptance}
+        onSearch={applyFilters}
+        showAdvancedSearch={showAdvancedSearch}
+        setShowAdvancedSearch={setShowAdvancedSearch}
       />
 
       {/* Student Profile Component */}
@@ -60,12 +109,15 @@ const UniversityExplorer = () => {
 
       {/* Main content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* University grid */}
+        {/* Enhanced University grid with pagination */}
         <UniversityGrid
-          universities={filteredUniversities}
+          universities={universities}
           selectedUniversity={selectedUniversity}
           onUniversityClick={(university) => setSelectedUniversity(university)}
           highlightGlow={highlightGlow}
+          loading={loading}
+          pagination={pagination}
+          onPageChange={handlePageChange}
         />
 
         {/* University details */}

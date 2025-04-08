@@ -33,6 +33,9 @@ const UniversityDetails = ({ university }) => {
     ));
   };
 
+  // Ensure topPrograms is an array even if it's undefined in the university object
+  const topPrograms = university.topPrograms || [];
+
   const admissionChance = calculateAcceptanceChance(university, studentProfile);
 
   return (
@@ -68,7 +71,7 @@ const UniversityDetails = ({ university }) => {
             <span className="absolute -bottom-1 left-0 w-12 h-0.5 bg-blue-400"></span>
           </h3>
           <p className="text-gray-300 backdrop-blur-sm bg-gray-800/50 p-3 rounded border border-gray-700/50 shadow-inner text-sm">
-            {university.description}
+            {university.description || `${university.name} is a ${university.type.toLowerCase()} university located in ${university.location}.`}
           </p>
         </div>
 
@@ -79,8 +82,8 @@ const UniversityDetails = ({ university }) => {
           </h3>
           <div className="grid grid-cols-2 gap-3">
             <StatsCard label="Acceptance Rate" value={`${university.acceptanceRate}%`} />
-            <StatsCard label="SAT Range" value={`${university.satRange.min}-${university.satRange.max}`} />
-            <StatsCard label="GPA Cutoff" value={university.gpaCutoff} />
+            <StatsCard label="SAT Range" value={university.satRange ? `${university.satRange.min}-${university.satRange.max}` : 'N/A'} />
+            <StatsCard label="GPA Cutoff" value={university.gpaCutoff || 'N/A'} />
             <StatsCard
               label="Your Chance"
               value={`${admissionChance.score}%`}
@@ -180,29 +183,34 @@ const UniversityDetails = ({ university }) => {
           </div>
         </div>
 
-        <div className="mb-6 relative">
-          <h3 className="text-lg font-semibold mb-2 relative inline-block">
-            Top Programs
-            <span className="absolute -bottom-1 left-0 w-12 h-0.5 bg-blue-400"></span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {university.topPrograms.map((program, index) => (
-              <div key={index} className="px-3 py-1.5 bg-blue-900/30 rounded-full text-sm border border-blue-800/30 hover:bg-blue-800/50 transition-colors duration-300 cursor-default">
-                {program}
-              </div>
-            ))}
+        {/* Only render topPrograms section if the array exists and has content */}
+        {topPrograms.length > 0 && (
+          <div className="mb-6 relative">
+            <h3 className="text-lg font-semibold mb-2 relative inline-block">
+              Top Programs
+              <span className="absolute -bottom-1 left-0 w-12 h-0.5 bg-blue-400"></span>
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {topPrograms.map((program, index) => (
+                <div key={index} className="px-3 py-1.5 bg-blue-900/30 rounded-full text-sm border border-blue-800/30 hover:bg-blue-800/50 transition-colors duration-300 cursor-default">
+                  {program}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="relative">
-          <h3 className="text-lg font-semibold mb-2 relative inline-block">
-            Application Requirements
-            <span className="absolute -bottom-1 left-0 w-12 h-0.5 bg-blue-400"></span>
-          </h3>
-          <div className="backdrop-blur-sm bg-gray-800/50 p-3 rounded border border-gray-700/50 shadow-inner text-sm">
-            <p>{university.requirements}</p>
+        {university.requirements && (
+          <div className="relative">
+            <h3 className="text-lg font-semibold mb-2 relative inline-block">
+              Application Requirements
+              <span className="absolute -bottom-1 left-0 w-12 h-0.5 bg-blue-400"></span>
+            </h3>
+            <div className="backdrop-blur-sm bg-gray-800/50 p-3 rounded border border-gray-700/50 shadow-inner text-sm">
+              <p>{university.requirements}</p>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="mt-auto pt-6">
           <button className={`w-full py-3 rounded font-bold relative overflow-hidden group transition-all duration-300
