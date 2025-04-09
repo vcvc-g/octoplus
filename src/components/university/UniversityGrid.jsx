@@ -9,7 +9,8 @@ const UniversityGrid = ({
   highlightGlow,
   loading,
   pagination,
-  onPageChange
+  onPageChange,
+  error
 }) => {
   return (
     <div className="w-2/3 p-4 overflow-y-auto flex flex-col">
@@ -20,6 +21,19 @@ const UniversityGrid = ({
             <div className="text-center">
               <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
               <p className="text-lg text-blue-300">Loading universities...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="text-lg mb-2 text-red-400">Error loading university data</div>
+            <div className="text-sm text-gray-400 max-w-md">{error}</div>
+            <div className="mt-4 p-2 bg-gray-800 rounded text-xs">
+              <p>To use real university data, please ensure you have:</p>
+              <ol className="list-decimal list-inside mt-2 text-left">
+                <li className="mb-1">Created a .env file in the project root</li>
+                <li className="mb-1">Added your College Scorecard API key: REACT_APP_SCORECARD_API_KEY=your_key_here</li>
+                <li>Restarted the application</li>
+              </ol>
             </div>
           </div>
         ) : universities.length === 0 ? (
@@ -43,11 +57,11 @@ const UniversityGrid = ({
       </div>
 
       {/* Pagination */}
-      {!loading && universities.length > 0 && pagination && (
+      {!loading && !error && universities.length > 0 && pagination && (
         <Pagination
           currentPage={pagination.currentPage}
           totalPages={pagination.totalPages}
-          onPageChange={pagination.goToPage}
+          onPageChange={onPageChange}
           totalItems={pagination.totalItems}
           itemsPerPage={pagination.itemsPerPage}
         />

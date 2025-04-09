@@ -1,5 +1,5 @@
-// src/App.jsx - Updated with pagination and enhanced search
-import React, { useState, useEffect } from 'react';
+// src/App.jsx - Updated to pass error to UniversityGrid
+import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext';
 import { useCollegeData } from './hooks/useCollegeData';
@@ -25,7 +25,7 @@ const UniversityExplorer = () => {
     universities,
     loading,
     error,
-    hasAPIAccess,
+    apiConfigured,
     fetchUniversities,
     fetchUniversityById,
     pagination
@@ -47,10 +47,10 @@ const UniversityExplorer = () => {
 
       fetchDetailedUniversity();
     }
-  }, [selectedUniversity?.id, fetchUniversityById]);
+  }, [selectedUniversity, fetchUniversityById]);
 
   // Apply filters when they change
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     fetchUniversities({
       searchTerm,
       filterRegion,
@@ -58,14 +58,14 @@ const UniversityExplorer = () => {
       filterAcceptance,
       page: 1 // Reset to first page on filter change
     });
-  };
+  }, [fetchUniversities, searchTerm, filterRegion, filterType, filterAcceptance]);
 
   // Handle page change
-  const handlePageChange = (page) => {
+  const handlePageChange = useCallback((page) => {
     if (pagination) {
       pagination.goToPage(page);
     }
-  };
+  }, [pagination]);
 
   // Background animation effect
   useEffect(() => {
@@ -85,7 +85,7 @@ const UniversityExplorer = () => {
       {error && (
         <div className="bg-red-900/80 text-white text-sm py-1 px-4 text-center">
           {error}
-          {!hasAPIAccess && " Using demo data instead."}
+          {!apiConfigured && " API key not configured or invalid."}
         </div>
       )}
 
@@ -118,6 +118,7 @@ const UniversityExplorer = () => {
           loading={loading}
           pagination={pagination}
           onPageChange={handlePageChange}
+          error={error}
         />
 
         {/* University details */}

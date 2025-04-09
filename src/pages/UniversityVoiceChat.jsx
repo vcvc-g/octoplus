@@ -1,5 +1,5 @@
-// src/pages/UniversityVoiceChat.jsx
-import React, { useState, useRef, useEffect } from 'react';
+// src/pages/UniversityVoiceChat.jsx - Fixed with useCallback for speakText
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mic, MicOff, Play, Square, Send, Settings, Volume2, VolumeX, Wand2 } from 'lucide-react';
 import { BackgroundEffects } from '../components/ui';
 import universityVoiceAssistantService from '../services/universityVoiceAssistantService';
@@ -45,7 +45,7 @@ const UniversityVoiceChat = () => {
   ];
 
   // Speak text using speech synthesis (browser API)
-  const speakTextWithBrowser = (text) => {
+  const speakTextWithBrowser = useCallback((text) => {
     if (!window.speechSynthesis || isMuted) return;
 
     // Cancel any ongoing speech
@@ -65,10 +65,10 @@ const UniversityVoiceChat = () => {
     utterance.onerror = () => setIsSpeaking(false);
 
     window.speechSynthesis.speak(utterance);
-  };
+  }, [isMuted, selectedBrowserVoice, speechRate, pitch]);
 
   // Speak text using OpenAI TTS
-  const speakTextWithOpenAI = async (text) => {
+  const speakTextWithOpenAI = useCallback(async (text) => {
     if (isMuted) return;
 
     try {
@@ -111,16 +111,16 @@ const UniversityVoiceChat = () => {
       // Fall back to browser TTS if OpenAI fails
       speakTextWithBrowser(text);
     }
-  };
+  }, [isMuted, selectedOpenAIVoice, speakTextWithBrowser]);
 
-  // Unified speak function that chooses the appropriate method
-  const speakText = (text) => {
+  // Unified speak function that chooses the appropriate method - wrapped in useCallback
+  const speakText = useCallback((text) => {
     if (useOpenAI) {
       speakTextWithOpenAI(text);
     } else {
       speakTextWithBrowser(text);
     }
-  };
+  }, [useOpenAI, speakTextWithOpenAI, speakTextWithBrowser]);
 
   // Initialize the SpeechRecognition API (Browser API)
   useEffect(() => {
@@ -236,7 +236,7 @@ const UniversityVoiceChat = () => {
         currentAudioRef.current = null;
       }
     };
-  }, [isMuted]);
+  }, [isMuted, speakText]);
 
   // Get available browser voices when component mounts
   useEffect(() => {
@@ -655,7 +655,7 @@ const UniversityVoiceChat = () => {
                   <span>Send</span>
                 </button>
               )}
-            </div>
+            </div>``
 
             <div className="text-xs text-gray-400 text-center">
               {isProcessingAudio ? (
