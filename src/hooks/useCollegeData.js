@@ -1,4 +1,4 @@
-// src/hooks/useCollegeData.js - Modified to only use real data
+// src/hooks/useCollegeData.js - Updated with correct API parameter handling
 import { useState, useEffect, useCallback } from 'react';
 import collegeScorecardService from '../services/collegeScorecard';
 
@@ -84,28 +84,24 @@ export const useCollegeData = () => {
         name: newFilters.searchTerm,
         state: '',
         type: newFilters.filterType !== 'All' ? newFilters.filterType : '',
-        minAcceptanceRate: 0,
-        maxAcceptanceRate: 100,
         page: newFilters.page - 1, // API uses 0-based indexing
         perPage: itemsPerPage
       };
 
-      // Handle acceptance rate filtering
+      // Handle acceptance rate filtering using the correct parameter name
       if (newFilters.filterAcceptance > 0) {
         switch (newFilters.filterAcceptance) {
           case 1: // Very Selective (<5%)
-            apiOptions.maxAcceptanceRate = 5;
+            apiOptions['latest.admissions.admission_rate.overall__range'] = '0..0.05';
             break;
           case 2: // Selective (5-15%)
-            apiOptions.minAcceptanceRate = 5;
-            apiOptions.maxAcceptanceRate = 15;
+            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.05..0.15';
             break;
           case 3: // Moderate (15-30%)
-            apiOptions.minAcceptanceRate = 15;
-            apiOptions.maxAcceptanceRate = 30;
+            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.15..0.3';
             break;
           case 4: // High (>30%)
-            apiOptions.minAcceptanceRate = 30;
+            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.3..1';
             break;
           default:
             // No additional filtering needed for default case
@@ -165,7 +161,7 @@ export const useCollegeData = () => {
     } finally {
       setLoading(false);
     }
-  }, [apiConfigured, itemsPerPage, paginateData, updatePaginationMeta]);
+  }, [apiConfigured, itemsPerPage, updatePaginationMeta]);
 
   // Change page
   const goToPage = useCallback((page) => {

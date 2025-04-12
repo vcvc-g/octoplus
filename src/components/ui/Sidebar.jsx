@@ -1,7 +1,7 @@
-// src/components/ui/Sidebar.jsx
+// src/components/ui/Sidebar.jsx - Updated with API Debug link
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { School, Mic, Settings } from 'lucide-react';
+import { School, Mic, Terminal, Settings } from 'lucide-react';
 
 const Sidebar = () => {
   const location = useLocation();
@@ -41,6 +41,19 @@ const Sidebar = () => {
             >
               <Mic className="h-5 w-5 text-blue-400" />
               <span className="hidden md:block ml-4 text-white">Voice Assistant</span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/api-debug"
+              className={`flex items-center py-3 px-4 md:px-6 ${
+                location.pathname === '/api-debug'
+                  ? 'bg-blue-900/50 border-l-4 border-blue-500'
+                  : 'border-l-4 border-transparent hover:bg-gray-800/50'
+              }`}
+            >
+              <Terminal className="h-5 w-5 text-blue-400" />
+              <span className="hidden md:block ml-4 text-white">API Debug</span>
             </Link>
           </li>
         </ul>

@@ -1,4 +1,4 @@
-// src/services/collegeScorecard.js - Enhanced to handle API data better
+// src/services/collegeScorecard.js - Updated to remove local calculations
 import axios from 'axios';
 
 const BASE_URL = 'https://api.data.gov/ed/collegescorecard/v1/schools';
@@ -11,45 +11,28 @@ class CollegeScorecardService {
     this.apiKey = process.env.REACT_APP_SCORECARD_API_KEY || '';
     this.cache = new Map();
     this.cacheExpiration = 30 * 60 * 1000; // 30 minutes
+    this.lastRequest = null; // Store the last request URL
   }
 
   /**
    * Get universities with filtering options
    * @param {Object} options - Filter options
-   * @param {string} options.name - Name search
-   * @param {string} options.state - State filter (e.g., NY, CA)
-   * @param {string} options.region - Region filter
-   * @param {number} options.minAcceptanceRate - Minimum acceptance rate
-   * @param {number} options.maxAcceptanceRate - Maximum acceptance rate
-   * @param {string} options.type - Institution type (public, private)
-   * @param {number} options.page - Page number for pagination
-   * @param {number} options.perPage - Results per page
    * @returns {Promise<Object>} - Universities data
    */
-  async getUniversities({
-    name = '',
-    state = '',
-    region = '',
-    minAcceptanceRate = 0,
-    maxAcceptanceRate = 100,
-    type = '',
-    page = 0,
-    perPage = 20
-  } = {}) {
+  async getUniversities(options = {}) {
     try {
       if (!this.apiKey) {
         throw new Error('API key not configured');
       }
 
       // Generate a cache key based on parameters
-      const cacheKey = JSON.stringify({
-        name, state, region, minAcceptanceRate, maxAcceptanceRate, type, page, perPage
-      });
+      const cacheKey = JSON.stringify(options);
 
       // Check if we have a valid cached response
       if (this.cache.has(cacheKey)) {
         const cachedData = this.cache.get(cacheKey);
         if (Date.now() - cachedData.timestamp < this.cacheExpiration) {
+          this.lastRequest = cachedData.requestUrl;
           return cachedData.data;
         }
       }
@@ -57,44 +40,64 @@ class CollegeScorecardService {
       // Build the query parameters
       let params = {
         'api_key': this.apiKey,
-        'page': page,
-        'per_page': perPage,
-        'fields': this._getFieldsParameter(),
+        'page': options.page || 0,
+        'per_page': options.perPage || 20,
         '_sort': 'school.name'
       };
 
-      // Add filters
-      if (name) {
-        params['school.name'] = name;
+      // Add requested fields
+      if (options.fields) {
+        params.fields = options.fields;
+      } else {
+        // Default fields to request if not specified
+        params.fields = this._getFieldsParameter();
       }
 
-      if (state) {
-        params['school.state'] = state;
+      // Add name filter
+      if (options.name) {
+        params['school.name'] = options.name;
       }
 
-      if (type) {
-        if (type.toLowerCase() === 'public') {
+      // Add state filter
+      if (options.state) {
+        params['school.state'] = options.state;
+      }
+
+      // Add institution type filter
+      if (options.type) {
+        if (options.type.toLowerCase() === 'public') {
           params['school.ownership'] = 1;
-        } else if (type.toLowerCase() === 'private') {
+        } else if (options.type.toLowerCase() === 'private') {
           params['school.ownership'] = 2;
         }
       }
 
-      if (minAcceptanceRate > 0 || maxAcceptanceRate < 100) {
-        params['latest.admissions.admission_rate.overall__range'] =
-          `${minAcceptanceRate / 100}..${maxAcceptanceRate / 100}`;
-      }
+      // Add any additional parameters directly
+      Object.keys(options).forEach(key => {
+        if (!['name', 'state', 'type', 'page', 'perPage', 'fields'].includes(key)) {
+          params[key] = options[key];
+        }
+      });
+
+      // Build request URL for debugging
+      const url = new URL(BASE_URL);
+      Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
+      this.lastRequest = url.toString();
 
       // Make the API request
       const response = await axios.get(BASE_URL, { params });
 
-      // Transform the data to match our application's format
-      const transformedData = this._transformCollegeData(response.data);
+      // Transform universities to a simplified format but keep all data
+      const transformedData = {
+        metadata: response.data.metadata,
+        universities: response.data.results.map(college => this._transformUniversityItem(college))
+      };
 
       // Cache the response
       this.cache.set(cacheKey, {
         data: transformedData,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        requestUrl: this.lastRequest
       });
 
       return transformedData;
@@ -122,24 +125,25 @@ class CollegeScorecardService {
       if (this.cache.has(cacheKey)) {
         const cachedData = this.cache.get(cacheKey);
         if (Date.now() - cachedData.timestamp < this.cacheExpiration) {
+          this.lastRequest = cachedData.requestUrl;
           return cachedData.data;
         }
       }
 
-      const response = await axios.get(`${BASE_URL}/${id}`, {
-        params: {
-          'api_key': this.apiKey,
-          'fields': this._getFieldsParameter(true)
-        }
-      });
+      // Build the request URL
+      const url = `${BASE_URL}/${id}?api_key=${this.apiKey}&fields=${this._getFieldsParameter(true)}`;
+      this.lastRequest = url;
 
-      // Transform to match our application's university model
+      const response = await axios.get(url);
+
+      // Preserve original data while maintaining our application's structure
       const university = this._transformUniversityDetail(response.data.results[0]);
 
       // Cache the result
       this.cache.set(cacheKey, {
         data: university,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        requestUrl: url
       });
 
       return university;
@@ -148,6 +152,14 @@ class CollegeScorecardService {
       console.error(`Error fetching university with ID ${id}:`, error);
       throw error;
     }
+  }
+
+  /**
+   * Get the last API request URL
+   * @returns {string|null} - Last request URL
+   */
+  getLastRequest() {
+    return this.lastRequest;
   }
 
   /**
@@ -181,13 +193,21 @@ class CollegeScorecardService {
       'latest.cost.tuition.out_of_state',
       'school.price_calculator_url',
       'school.institutional_characteristics.level',
-      'school.minority_serving.historically_black'
+      'school.minority_serving.historically_black',
+      'school.carnegie_basic',
+      'latest.student.demographics.race_ethnicity',
+      'latest.student.demographics.men',
+      'latest.student.demographics.women',
+      'latest.student.demographics.age_entry_over_25',
+      'latest.student.demographics.first_generation',
+      'latest.student.retention_rate.four_year.full_time',
+      'latest.earnings.6_yrs_after_entry.median',
+      'latest.earnings.10_yrs_after_entry.median'
     ];
 
     if (detailed) {
       return [
         ...baseFields,
-        'school.carnegie_basic',
         'school.locale',
         'school.degrees_awarded.predominant',
         'latest.admissions.admission_rate.by_ope_id',
@@ -195,12 +215,11 @@ class CollegeScorecardService {
         'latest.admissions.sat_scores.midpoint.math',
         'latest.admissions.act_scores.25th_percentile.cumulative',
         'latest.admissions.act_scores.75th_percentile.cumulative',
-        'latest.earnings.10_yrs_after_entry.median',
         'latest.academics.program_percentage',
-        'latest.student.demographics.race_ethnicity',
         'latest.completion.rate_suppressed.overall',
         'latest.aid.median_debt.completers.overall',
-        'latest.student.retention_rate.four_year.full_time'
+        'latest.student.part_time_share',
+        'latest.student.enrollment.all'
       ].join(',');
     }
 
@@ -214,80 +233,64 @@ class CollegeScorecardService {
    */
   _transformCollegeData(data) {
     return {
-      metadata: {
-        total: data.metadata.total,
-        page: data.metadata.page,
-        perPage: data.metadata.per_page
-      },
+      metadata: data.metadata,
       universities: data.results.map(college => this._transformUniversityItem(college))
     };
   }
 
   /**
-   * Transform a university item to match our application's model
+   * Transform a university item while preserving original API data
    * @param {Object} college - College data from API
-   * @returns {Object} - Transformed university object
+   * @returns {Object} - University object
    */
   _transformUniversityItem(college) {
-    // Calculate rank approximation (based on admission rate and other factors)
-    const admissionRate = college['latest.admissions.admission_rate.overall'] || 0.5;
-    const hasCompleteSATData =
-      college['latest.admissions.sat_scores.25th_percentile.math'] &&
-      college['latest.admissions.sat_scores.75th_percentile.math'];
-
-    let qsRank = Math.min(Math.round((1 - admissionRate) * 200), 400);
-
-    // Adjust rank based on data completeness
-    if (!hasCompleteSATData) {
-      qsRank += 50; // Penalty for missing data
-    }
-
-    // Adjust for size of institution
-    const studentSize = college['latest.student.size'] || 0;
-    if (studentSize > 20000) qsRank -= 20;
-    else if (studentSize > 10000) qsRank -= 10;
-
-    // Determine university type
-    let type = 'Unknown';
-    if (college['school.ownership'] === 1) {
-      type = 'Public';
-    } else if (college['school.ownership'] === 2) {
-      type = 'Private';
-    }
-
-    // Format SAT range
-    const satMin =
-      (college['latest.admissions.sat_scores.25th_percentile.critical_reading'] || 0) +
-      (college['latest.admissions.sat_scores.25th_percentile.math'] || 0);
-
-    const satMax =
-      (college['latest.admissions.sat_scores.75th_percentile.critical_reading'] || 0) +
-      (college['latest.admissions.sat_scores.75th_percentile.math'] || 0);
-
-    // Format location
-    const city = college['school.city'] || '';
-    const state = college['school.state'] || '';
-    const location = city && state ? `${city}, ${state}` : (city || state || 'United States');
-
+    // Just restructure for convenience without local calculations
     return {
       id: college.id,
       name: college['school.name'] || 'Unnamed University',
-      location: location,
-      type: type,
-      qsRank: qsRank,
-      acceptanceRate: admissionRate ? Math.round(admissionRate * 100 * 10) / 10 : null,
+      location: this._formatLocation(college),
+      type: this._getInstitutionType(college['school.ownership']),
+      acceptanceRate: college['latest.admissions.admission_rate.overall']
+        ? Math.round(college['latest.admissions.admission_rate.overall'] * 100 * 10) / 10
+        : null,
       satRange: {
-        min: satMin || null,
-        max: satMax || null
+        min: (college['latest.admissions.sat_scores.25th_percentile.critical_reading'] || 0) +
+             (college['latest.admissions.sat_scores.25th_percentile.math'] || 0) || null,
+        max: (college['latest.admissions.sat_scores.75th_percentile.critical_reading'] || 0) +
+             (college['latest.admissions.sat_scores.75th_percentile.math'] || 0) || null
       },
-      gpaCutoff: this._estimateGPACutoff(admissionRate, satMin),
-      studentCount: college['latest.student.size'] || null,
       tuitionInState: college['latest.cost.tuition.in_state'] || null,
       tuitionOutState: college['latest.cost.tuition.out_of_state'] || null,
       website: college['school.school_url'] || null,
       level: this._formatLevel(college['school.institutional_characteristics.level']),
-      isHBCU: college['school.minority_serving.historically_black'] || false
+      isHBCU: college['school.minority_serving.historically_black'] || false,
+      // Preserve all original API data
+      _apiData: college
     };
+  }
+
+  /**
+   * Format location from city and state
+   * @param {Object} college - College data
+   * @returns {string} - Formatted location
+   */
+  _formatLocation(college) {
+    const city = college['school.city'] || '';
+    const state = college['school.state'] || '';
+    return city && state ? `${city}, ${state}` : (city || state || 'United States');
+  }
+
+  /**
+   * Get institution type based on ownership code
+   * @param {number} ownership - Ownership code
+   * @returns {string} - Institution type
+   */
+  _getInstitutionType(ownership) {
+    switch(ownership) {
+      case 1: return 'Public';
+      case 2: return 'Private';
+      default: return 'Unknown';
+    }
   }
 
   /**
@@ -299,64 +302,24 @@ class CollegeScorecardService {
     // Get the base transformation
     const university = this._transformUniversityItem(college);
 
-    // Generate a more detailed description
-    const description = this._generateUniversityDescription(college);
-
-    // Determine top programs based on program percentages
-    let topPrograms = [];
-    if (college['latest.academics.program_percentage']) {
-      // Find the top 5 programs
-      const programs = Object.entries(college['latest.academics.program_percentage'])
-        .filter(([key, value]) => value > 0)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([key]) => this._formatProgramName(key));
-
-      topPrograms = programs;
-    }
-
-    // Calculate retention rate
-    const retentionRate = college['latest.student.retention_rate.four_year.full_time']
-      ? Math.round(college['latest.student.retention_rate.four_year.full_time'] * 100)
-      : null;
-
-    // Add more detailed data
+    // Add a few additional fields for convenience but keep it simple
     return {
       ...university,
-      description: description,
-      topPrograms: topPrograms.length > 0 ? topPrograms : null,
-      completionRate: college['latest.completion.rate_suppressed.overall']
-        ? Math.round(college['latest.completion.rate_suppressed.overall'] * 100)
-        : null,
-      medianEarnings: college['latest.earnings.10_yrs_after_entry.median'] || null,
-      medianDebt: college['latest.aid.median_debt.completers.overall'] || null,
-      retentionRate: retentionRate,
-      requirements: this._generateRequirementsText(college),
-      // Add demographics if available
-      demographics: college['latest.student.demographics.race_ethnicity'] || null
+      topPrograms: this._getTopPrograms(college),
+      demographics: {
+        raceEthnicity: college['latest.student.demographics.race_ethnicity'] || {},
+        men: college['latest.student.demographics.men'] || null,
+        women: college['latest.student.demographics.women'] || null,
+        ageOver25: college['latest.student.demographics.age_entry_over_25'] || null,
+        firstGeneration: college['latest.student.demographics.first_generation'] || null
+      },
+      earnings: {
+        sixYears: college['latest.earnings.6_yrs_after_entry.median'] || null,
+        tenYears: college['latest.earnings.10_yrs_after_entry.median'] || null
+      },
+      retention: college['latest.student.retention_rate.four_year.full_time'] || null,
+      completion: college['latest.completion.rate_suppressed.overall'] || null
     };
-  }
-
-  /**
-   * Estimate GPA cutoff based on acceptance rate and SAT scores
-   * @param {number} acceptanceRate - University acceptance rate
-   * @param {number} satMin - Minimum SAT score
-   * @returns {number} - Estimated GPA cutoff
-   */
-  _estimateGPACutoff(acceptanceRate, satMin) {
-    if (!acceptanceRate) return 3.0;
-
-    // Base GPA estimate on acceptance rate
-    let gpaEstimate = 4.0 - (acceptanceRate * 1.5);
-
-    // Adjust based on SAT if available
-    if (satMin) {
-      if (satMin > 1400) gpaEstimate += 0.2;
-      else if (satMin < 1000) gpaEstimate -= 0.2;
-    }
-
-    // Keep in reasonable range
-    return Math.max(2.5, Math.min(4.0, gpaEstimate)).toFixed(1);
   }
 
   /**
@@ -368,116 +331,28 @@ class CollegeScorecardService {
     if (!level) return null;
 
     switch(level) {
-      case 1:
-        return '4-year';
-      case 2:
-        return '2-year';
-      case 3:
-        return 'Less than 2-year';
-      default:
-        return null;
+      case 1: return '4-year';
+      case 2: return '2-year';
+      case 3: return 'Less than 2-year';
+      default: return null;
     }
   }
 
   /**
-   * Generate a descriptive paragraph about the university
+   * Get top programs from program percentages
    * @param {Object} college - College data
-   * @returns {string} - Description text
+   * @returns {Array} - Top programs
    */
-  _generateUniversityDescription(college) {
-    const name = college['school.name'] || 'This university';
-    const type = college['school.ownership'] === 1
-      ? 'public'
-      : college['school.ownership'] === 2
-        ? 'private'
-        : '';
-
-    const size = college['latest.student.size'];
-    let sizeDesc = '';
-
-    if (size) {
-      if (size < 2000) sizeDesc = 'small';
-      else if (size < 10000) sizeDesc = 'medium-sized';
-      else if (size < 20000) sizeDesc = 'large';
-      else sizeDesc = 'very large';
+  _getTopPrograms(college) {
+    if (!college['latest.academics.program_percentage']) {
+      return [];
     }
 
-    const admissionRate = college['latest.admissions.admission_rate.overall'];
-    let selectivity = '';
-
-    if (admissionRate) {
-      if (admissionRate < 0.1) selectivity = 'highly selective';
-      else if (admissionRate < 0.3) selectivity = 'selective';
-      else if (admissionRate < 0.7) selectivity = 'moderately selective';
-      else selectivity = 'less selective';
-    }
-
-    const isHBCU = college['school.minority_serving.historically_black'];
-    let hbcuText = isHBCU ? ' It is recognized as a Historically Black College and University (HBCU).' : '';
-
-    // Build the description
-    const city = college['school.city'] || '';
-    const state = college['school.state'] || '';
-    const location = city && state ? `${city}, ${state}` : (city || state || '');
-
-    let description = `${name} is a ${sizeDesc} ${type} institution`;
-    if (location) {
-      description += ` located in ${location}`;
-    }
-    description += `.`;
-
-    if (admissionRate) {
-      description += ` It is a ${selectivity} university with an acceptance rate of ${Math.round(admissionRate * 100)}%.`;
-    }
-
-    if (size) {
-      description += ` The university has approximately ${size.toLocaleString()} enrolled students.`;
-    }
-
-    description += hbcuText;
-
-    return description;
-  }
-
-  /**
-   * Generate text about application requirements
-   * @param {Object} college - College data
-   * @returns {string} - Requirements text
-   */
-  _generateRequirementsText(college) {
-    const satReading = college['latest.admissions.sat_scores.midpoint.critical_reading'];
-    const satMath = college['latest.admissions.sat_scores.midpoint.math'];
-    const act = college['latest.admissions.act_scores.midpoint.cumulative'];
-
-    let requirements = 'Application requirements typically include:';
-
-    requirements += '\n• High school transcript';
-    requirements += '\n• Letters of recommendation';
-
-    if (satReading && satMath) {
-      requirements += `\n• SAT scores (mid-range: ${satReading + satMath} combined)`;
-    } else if (college['latest.admissions.sat_scores.25th_percentile.critical_reading'] &&
-              college['latest.admissions.sat_scores.25th_percentile.math']) {
-      const min = college['latest.admissions.sat_scores.25th_percentile.critical_reading'] +
-                  college['latest.admissions.sat_scores.25th_percentile.math'];
-      const max = college['latest.admissions.sat_scores.75th_percentile.critical_reading'] +
-                  college['latest.admissions.sat_scores.75th_percentile.math'];
-      requirements += `\n• SAT scores (range: ${min}-${max} combined)`;
-    }
-
-    if (act) {
-      requirements += `\n• ACT scores (midpoint: ${act})`;
-    } else if (college['latest.admissions.act_scores.25th_percentile.cumulative'] &&
-              college['latest.admissions.act_scores.75th_percentile.cumulative']) {
-      const min = college['latest.admissions.act_scores.25th_percentile.cumulative'];
-      const max = college['latest.admissions.act_scores.75th_percentile.cumulative'];
-      requirements += `\n• ACT scores (range: ${min}-${max})`;
-    }
-
-    requirements += '\n• Personal statement or essays';
-    requirements += '\n• Application fee or fee waiver';
-
-    return requirements;
+    return Object.entries(college['latest.academics.program_percentage'])
+      .filter(([_, percentage]) => percentage > 0)
+      .sort(([_, a], [__, b]) => b - a)
+      .slice(0, 5)
+      .map(([program, _]) => this._formatProgramName(program));
   }
 
   /**

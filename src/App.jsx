@@ -1,4 +1,4 @@
-// src/App.jsx - Updated to pass error to UniversityGrid
+// src/App.jsx - Updated with API Debug route
 import React, { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext';
@@ -8,6 +8,7 @@ import { UniversityGrid, UniversityDetails } from './components/university';
 import { BackgroundEffects, Header } from './components/ui';
 import Sidebar from './components/ui/Sidebar';
 import UniversityVoiceChat from './pages/UniversityVoiceChat';
+import ApiDebugPage from './pages/ApiDebugPage'; // Import the new debug page
 
 // Create a UniversityExplorer component for the main page
 const UniversityExplorer = () => {
@@ -141,6 +142,7 @@ function App() {
             <Routes>
               <Route path="/" element={<UniversityExplorer />} />
               <Route path="/voice-chat" element={<UniversityVoiceChat />} />
+              <Route path="/api-debug" element={<ApiDebugPage />} /> {/* New route for API debugging */}
             </Routes>
           </div>
         </div>
