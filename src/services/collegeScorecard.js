@@ -37,7 +37,7 @@ class CollegeScorecardService {
         }
       }
 
-      // Build the query parameters
+      // Build the query parameters - start with API key and pagination
       let params = {
         'api_key': this.apiKey,
         'page': options.page || 0,
@@ -53,28 +53,14 @@ class CollegeScorecardService {
         params.fields = this._getFieldsParameter();
       }
 
-      // Add name filter
-      if (options.name) {
-        params['school.name'] = options.name;
-      }
+      // IMPORTANT FIX: Direct parameter passing instead of renaming
+      // This ensures we send exactly what the API expects
 
-      // Add state filter
-      if (options.state) {
-        params['school.state'] = options.state;
-      }
-
-      // Add institution type filter
-      if (options.type) {
-        if (options.type.toLowerCase() === 'public') {
-          params['school.ownership'] = 1;
-        } else if (options.type.toLowerCase() === 'private') {
-          params['school.ownership'] = 2;
-        }
-      }
-
-      // Add any additional parameters directly
+      // Copy all other parameters directly to preserve dot notation
       Object.keys(options).forEach(key => {
-        if (!['name', 'state', 'type', 'page', 'perPage', 'fields'].includes(key)) {
+        // Skip the ones we've already handled
+        if (!['page', 'perPage', 'fields'].includes(key)) {
+          // Use the parameter name exactly as provided
           params[key] = options[key];
         }
       });
@@ -84,8 +70,15 @@ class CollegeScorecardService {
       Object.keys(params).forEach(key => url.searchParams.append(key, params[key]));
       this.lastRequest = url.toString();
 
+      console.log('Making API request to:', this.lastRequest);
+
       // Make the API request
       const response = await axios.get(BASE_URL, { params });
+
+      // Log first results to help diagnose
+      if (response.data && response.data.results && response.data.results.length > 0) {
+        console.log('First result raw data:', response.data.results[0]);
+      }
 
       // Transform universities to a simplified format but keep all data
       const transformedData = {
@@ -244,10 +237,18 @@ class CollegeScorecardService {
    * @returns {Object} - University object
    */
   _transformUniversityItem(college) {
+    // Add debugging to see what we're getting from the API
+    console.log('Raw college data:', college);
+
+    // Check if school.name exists and has a value
+    if (!college['school.name']) {
+      console.warn('Missing school name in API response:', college);
+    }
+
     // Just restructure for convenience without local calculations
     return {
       id: college.id,
-      name: college['school.name'] || 'Unnamed University',
+      name: college['school.name'] || 'No Name Available', // Different default to help diagnose
       location: this._formatLocation(college),
       type: this._getInstitutionType(college['school.ownership']),
       acceptanceRate: college['latest.admissions.admission_rate.overall']
@@ -255,9 +256,9 @@ class CollegeScorecardService {
         : null,
       satRange: {
         min: (college['latest.admissions.sat_scores.25th_percentile.critical_reading'] || 0) +
-             (college['latest.admissions.sat_scores.25th_percentile.math'] || 0) || null,
+            (college['latest.admissions.sat_scores.25th_percentile.math'] || 0) || null,
         max: (college['latest.admissions.sat_scores.75th_percentile.critical_reading'] || 0) +
-             (college['latest.admissions.sat_scores.75th_percentile.math'] || 0) || null
+            (college['latest.admissions.sat_scores.75th_percentile.math'] || 0) || null
       },
       tuitionInState: college['latest.cost.tuition.in_state'] || null,
       tuitionOutState: college['latest.cost.tuition.out_of_state'] || null,

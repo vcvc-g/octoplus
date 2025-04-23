@@ -23,7 +23,7 @@ export const useCollegeData = () => {
     searchTerm: '',
     filterRegion: 'All',
     filterType: 'All',
-    filterAcceptance: 0,
+    // filterAcceptance: 0,
     page: 1
   });
 
@@ -71,7 +71,7 @@ export const useCollegeData = () => {
       searchTerm: options.searchTerm || '',
       filterRegion: options.filterRegion || 'All',
       filterType: options.filterType || 'All',
-      filterAcceptance: options.filterAcceptance || 0,
+      // filterAcceptance: options.filterAcceptance || 0,
       page: options.page || 1
     };
 
@@ -88,26 +88,26 @@ export const useCollegeData = () => {
         perPage: itemsPerPage
       };
 
-      // Handle acceptance rate filtering using the correct parameter name
-      if (newFilters.filterAcceptance > 0) {
-        switch (newFilters.filterAcceptance) {
-          case 1: // Very Selective (<5%)
-            apiOptions['latest.admissions.admission_rate.overall__range'] = '0..0.05';
-            break;
-          case 2: // Selective (5-15%)
-            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.05..0.15';
-            break;
-          case 3: // Moderate (15-30%)
-            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.15..0.3';
-            break;
-          case 4: // High (>30%)
-            apiOptions['latest.admissions.admission_rate.overall__range'] = '0.3..1';
-            break;
-          default:
-            // No additional filtering needed for default case
-            break;
-        }
-      }
+      // // Handle acceptance rate filtering using the correct parameter name
+      // if (newFilters.filterAcceptance > 0) {
+      //   switch (newFilters.filterAcceptance) {
+      //     case 1: // Very Selective (<5%)
+      //       apiOptions['latest.admissions.admission_rate.overall__range'] = '0..0.05';
+      //       break;
+      //     case 2: // Selective (5-15%)
+      //       apiOptions['latest.admissions.admission_rate.overall__range'] = '0.05..0.15';
+      //       break;
+      //     case 3: // Moderate (15-30%)
+      //       apiOptions['latest.admissions.admission_rate.overall__range'] = '0.15..0.3';
+      //       break;
+      //     case 4: // High (>30%)
+      //       apiOptions['latest.admissions.admission_rate.overall__range'] = '0.3..1';
+      //       break;
+      //     default:
+      //       // No additional filtering needed for default case
+      //       break;
+      //   }
+      // }
 
       // Handle region filtering
       if (newFilters.filterRegion && newFilters.filterRegion !== 'All') {

@@ -1,4 +1,4 @@
-// src/pages/ApiDebugPage.jsx - Updated to display raw API data and request
+// src/pages/ApiDebugPage.jsx - Enhanced to support test scores and better searching
 import React, { useState, useEffect } from 'react';
 import { BackgroundEffects } from '../components/ui';
 import collegeScorecardService from '../services/collegeScorecard';
@@ -19,11 +19,12 @@ const ApiDebugPage = () => {
   // Query parameters
   const [searchTerm, setSearchTerm] = useState('');
   const [state, setState] = useState('');
-  const [minAcceptanceRate, setMinAcceptanceRate] = useState(0);
-  const [maxAcceptanceRate, setMaxAcceptanceRate] = useState(100);
+  const [cityName, setCityName] = useState('');
   const [type, setType] = useState('');
-  const [page, setPage] = useState(0);
-  const [perPage, setPerPage] = useState(10);
+  const [page, setPage] = useState(0); // API uses 0-based indexing
+  const [perPage, setPerPage] = useState(20);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   // Additional fields to request from the API
   const additionalFields = [
@@ -74,8 +75,8 @@ const ApiDebugPage = () => {
     }
   }, []);
 
-  // Function to fetch data from the API
-  const fetchData = async () => {
+  // Flexible function to fetch schools with test score information
+  const fetchSchoolsWithTestScores = async () => {
     if (!isConfigured) {
       setError('API key is not configured. Add REACT_APP_SCORECARD_API_KEY to your .env file.');
       return;
@@ -85,25 +86,82 @@ const ApiDebugPage = () => {
     setError(null);
 
     try {
+      // Build options using form inputs
       const options = {
-        name: searchTerm,
-        state: state,
-        page: parseInt(page),
-        perPage: parseInt(perPage),
-        fields: additionalFields.join(',')
+        // Pagination parameters
+        'page': parseInt(page),
+        'per_page': parseInt(perPage),
+
+        // Sorting by student size in descending order
+        '_sort': 'latest.student.size:desc',
+
+        // Fields to include in the response
+        'fields': [
+          // Basic institution information
+          'id',
+          'school.name',
+          'school.city',
+          'school.state',
+          'school.zip',
+          'school.school_url',
+          'school.ownership',
+
+          // SAT scores
+          'latest.admissions.sat_scores.25th_percentile.critical_reading',
+          'latest.admissions.sat_scores.75th_percentile.critical_reading',
+          'latest.admissions.sat_scores.25th_percentile.math',
+          'latest.admissions.sat_scores.75th_percentile.math',
+          'latest.admissions.sat_scores.25th_percentile.writing',
+          'latest.admissions.sat_scores.75th_percentile.writing',
+          'latest.admissions.sat_scores.midpoint.critical_reading',
+          'latest.admissions.sat_scores.midpoint.math',
+          'latest.admissions.sat_scores.midpoint.writing',
+
+          // ACT scores
+          'latest.admissions.act_scores.25th_percentile.cumulative',
+          'latest.admissions.act_scores.75th_percentile.cumulative',
+          'latest.admissions.act_scores.25th_percentile.english',
+          'latest.admissions.act_scores.75th_percentile.english',
+          'latest.admissions.act_scores.25th_percentile.math',
+          'latest.admissions.act_scores.75th_percentile.math',
+          'latest.admissions.act_scores.25th_percentile.writing',
+          'latest.admissions.act_scores.75th_percentile.writing',
+          'latest.admissions.act_scores.midpoint.cumulative',
+          'latest.admissions.act_scores.midpoint.english',
+          'latest.admissions.act_scores.midpoint.math',
+          'latest.admissions.act_scores.midpoint.writing',
+
+          // Additional useful context
+          'latest.admissions.admission_rate.overall',
+          'latest.student.size'
+        ].join(',')
       };
 
-      // Add acceptance rate range if values are changed from default
-      if (minAcceptanceRate > 0 || maxAcceptanceRate < 100) {
-        // The API expects this in the format of fieldname__range=min..max
-        // And acceptance rates in the API are stored as decimals (0.0 to 1.0)
-        options['latest.admissions.admission_rate.overall__range'] = `${minAcceptanceRate / 100}..${maxAcceptanceRate / 100}`;
+      // Add search term (institution name) filter if provided
+      if (searchTerm && searchTerm.trim() !== '') {
+        options['school.name'] = searchTerm;
       }
 
-      // Set the institution type if selected
-      if (type) {
-        options.type = type;
+      // Add state filter if provided
+      if (state && state.trim() !== '') {
+        options['school.state'] = state.toUpperCase();
       }
+
+      // Add city filter if provided
+      if (cityName && cityName.trim() !== '') {
+        options['school.city'] = cityName;
+      }
+
+      // Add institution type filter if selected
+      if (type) {
+        if (type.toLowerCase() === 'public') {
+          options['school.ownership'] = 1;
+        } else if (type.toLowerCase() === 'private') {
+          options['school.ownership'] = 2;
+        }
+      }
+
+      console.log('Making API request with options:', options);
 
       const response = await collegeScorecardService.getUniversities(options);
       setRawResponse(response);
@@ -112,6 +170,12 @@ const ApiDebugPage = () => {
       // Get the API request URL
       const requestUrl = collegeScorecardService.getLastRequest();
       setApiRequestUrl(requestUrl);
+
+      // Update UI with pagination information
+      if (response.metadata) {
+        setTotalItems(response.metadata.total);
+        setTotalPages(Math.ceil(response.metadata.total / response.metadata.per_page));
+      }
 
       setSelectedUniversity(null);
       setLoading(false);
@@ -487,6 +551,243 @@ const ApiDebugPage = () => {
           </div>
         );
 
+      case 'testScores':
+        return (
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-blue-300">SAT & ACT Scores</h3>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* SAT Scores Section */}
+              <div className="bg-gray-800 p-4 rounded shadow">
+                <h4 className="font-medium mb-3 text-blue-200 border-b border-gray-700 pb-2">SAT Scores</h4>
+
+                <div className="space-y-4">
+                  {/* Reading Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">Critical Reading</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.25th_percentile.critical_reading'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.75th_percentile.critical_reading'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.midpoint.critical_reading'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.sat_scores.25th_percentile.critical_reading'] &&
+                       apiData['latest.admissions.sat_scores.75th_percentile.critical_reading'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-blue-600 rounded"
+                            style={{
+                              left: `${Math.max(0, apiData['latest.admissions.sat_scores.25th_percentile.critical_reading'] / 8)}%`,
+                              width: `${(apiData['latest.admissions.sat_scores.75th_percentile.critical_reading'] -
+                                        apiData['latest.admissions.sat_scores.25th_percentile.critical_reading']) / 8}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Math Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">Math</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.25th_percentile.math'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.75th_percentile.math'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.midpoint.math'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.sat_scores.25th_percentile.math'] &&
+                       apiData['latest.admissions.sat_scores.75th_percentile.math'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-blue-600 rounded"
+                            style={{
+                              left: `${Math.max(0, apiData['latest.admissions.sat_scores.25th_percentile.math'] / 8)}%`,
+                              width: `${(apiData['latest.admissions.sat_scores.75th_percentile.math'] -
+                                        apiData['latest.admissions.sat_scores.25th_percentile.math']) / 8}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+{/* Writing Section */}
+<div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">Writing</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.25th_percentile.writing'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.75th_percentile.writing'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.sat_scores.midpoint.writing'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.sat_scores.25th_percentile.writing'] &&
+                       apiData['latest.admissions.sat_scores.75th_percentile.writing'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-blue-600 rounded"
+                            style={{
+                              left: `${Math.max(0, apiData['latest.admissions.sat_scores.25th_percentile.writing'] / 8)}%`,
+                              width: `${(apiData['latest.admissions.sat_scores.75th_percentile.writing'] -
+                                        apiData['latest.admissions.sat_scores.25th_percentile.writing']) / 8}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACT Scores Section */}
+              <div className="bg-gray-800 p-4 rounded shadow">
+                <h4 className="font-medium mb-3 text-blue-200 border-b border-gray-700 pb-2">ACT Scores</h4>
+
+                <div className="space-y-4">
+                  {/* Cumulative Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">Cumulative</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.25th_percentile.cumulative'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.75th_percentile.cumulative'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.midpoint.cumulative'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.act_scores.25th_percentile.cumulative'] &&
+                       apiData['latest.admissions.act_scores.75th_percentile.cumulative'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-green-600 rounded"
+                            style={{
+                              left: `${apiData['latest.admissions.act_scores.25th_percentile.cumulative'] * 3}%`,
+                              width: `${(apiData['latest.admissions.act_scores.75th_percentile.cumulative'] -
+                                        apiData['latest.admissions.act_scores.25th_percentile.cumulative']) * 3}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* English Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">English</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.25th_percentile.english'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.75th_percentile.english'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.midpoint.english'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.act_scores.25th_percentile.english'] &&
+                       apiData['latest.admissions.act_scores.75th_percentile.english'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-green-600 rounded"
+                            style={{
+                              left: `${apiData['latest.admissions.act_scores.25th_percentile.english'] * 3}%`,
+                              width: `${(apiData['latest.admissions.act_scores.75th_percentile.english'] -
+                                        apiData['latest.admissions.act_scores.25th_percentile.english']) * 3}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Math Section */}
+                  <div>
+                    <h5 className="text-sm font-medium text-gray-300 mb-2">Math</h5>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>25th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.25th_percentile.math'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>75th Percentile:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.75th_percentile.math'])}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Midpoint:</span>
+                        <span>{formatNumber(apiData['latest.admissions.act_scores.midpoint.math'])}</span>
+                      </div>
+
+                      {/* Visual bar for range */}
+                      {apiData['latest.admissions.act_scores.25th_percentile.math'] &&
+                       apiData['latest.admissions.act_scores.75th_percentile.math'] && (
+                        <div className="relative h-4 bg-gray-700 rounded mt-1">
+                          <div
+                            className="absolute h-full bg-green-600 rounded"
+                            style={{
+                              left: `${apiData['latest.admissions.act_scores.25th_percentile.math'] * 3}%`,
+                              width: `${(apiData['latest.admissions.act_scores.75th_percentile.math'] -
+                                        apiData['latest.admissions.act_scores.25th_percentile.math']) * 3}%`
+                            }}
+                          ></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Display note if test scores are missing */}
+            {!apiData['latest.admissions.sat_scores.25th_percentile.critical_reading'] &&
+             !apiData['latest.admissions.act_scores.25th_percentile.cumulative'] && (
+              <div className="mt-4 p-3 bg-gray-700 rounded text-center">
+                <p className="text-sm text-gray-300">
+                  No test score data available for this institution. Many schools have made standardized tests optional or do not report their data.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
       default:
         return null;
     }
@@ -624,8 +925,19 @@ const ApiDebugPage = () => {
               value={state}
               onChange={(e) => setState(e.target.value.toUpperCase())}
               className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600"
-              placeholder="CA, NY, etc..."
+              placeholder="NY, CA, etc..."
               maxLength={2}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">City</label>
+            <input
+              type="text"
+              value={cityName}
+              onChange={(e) => setCityName(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600"
+              placeholder="New York, Boston, etc..."
             />
           </div>
 
@@ -642,65 +954,63 @@ const ApiDebugPage = () => {
             </select>
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm text-gray-400 mb-1">Acceptance Rate Range: {minAcceptanceRate}% - {maxAcceptanceRate}%</label>
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={minAcceptanceRate}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  setMinAcceptanceRate(val > maxAcceptanceRate ? maxAcceptanceRate : val);
-                }}
-                className="w-full"
-              />
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={maxAcceptanceRate}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  setMaxAcceptanceRate(val < minAcceptanceRate ? minAcceptanceRate : val);
-                }}
-                className="w-full"
-              />
-            </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Page Number</label>
+            <input
+              type="number"
+              min="0"
+              value={page}
+              onChange={(e) => setPage(Math.max(0, parseInt(e.target.value) || 0))}
+              className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600"
+            />
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <label className="block text-sm text-gray-400 mb-1">Results Per Page</label>
-              <select
-                value={perPage}
-                onChange={(e) => setPerPage(parseInt(e.target.value))}
-                className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600"
-              >
-                <option value="5">5</option>
-                <option value="10">10</option>
-                <option value="20">20</option>
-                <option value="50">50</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Results Per Page</label>
+            <select
+              value={perPage}
+              onChange={(e) => setPerPage(parseInt(e.target.value))}
+              className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600"
+            >
+              <option value="10">10</option>
+              <option value="20">20</option>
+              <option value="50">50</option>
+              <option value="100">100 (max)</option>
+            </select>
           </div>
         </div>
 
         <div className="mt-4 flex items-center justify-between">
-          <button
-            onClick={fetchData}
-            disabled={loading || !isConfigured}
-            className={`px-4 py-2 rounded font-medium ${
-              !isConfigured
-                ? 'bg-gray-600 cursor-not-allowed'
-                : loading
-                  ? 'bg-blue-800 cursor-wait'
-                  : 'bg-blue-600 hover:bg-blue-500'
-            }`}
-          >
-            {loading ? 'Loading...' : 'Search Universities'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={fetchSchoolsWithTestScores}
+              disabled={loading || !isConfigured}
+              className={`px-4 py-2 rounded font-medium ${
+                !isConfigured
+                  ? 'bg-gray-600 cursor-not-allowed'
+                  : loading
+                    ? 'bg-blue-800 cursor-wait'
+                    : 'bg-blue-600 hover:bg-blue-500'
+              }`}
+            >
+              {loading ? 'Loading...' : 'Search Universities'}
+            </button>
+
+            {/* Optional: Clear all filters button */}
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setState('');
+                setCityName('');
+                setType('');
+                setPage(0);
+                setPerPage(20);
+              }}
+              className="px-4 py-2 rounded font-medium bg-gray-700 hover:bg-gray-600"
+            >
+              Clear Filters
+            </button>
+          </div>
 
           <label className="flex items-center cursor-pointer">
             <input
@@ -712,6 +1022,13 @@ const ApiDebugPage = () => {
             <span>Show Raw API Response</span>
           </label>
         </div>
+
+        {/* Pagination info display */}
+        {!loading && totalItems > 0 && (
+          <div className="mt-3 text-sm text-gray-400">
+            Showing page {parseInt(page) + 1} of {totalPages} (Total results: {totalItems})
+          </div>
+        )}
       </div>
 
       {/* Results section */}
@@ -781,6 +1098,102 @@ const ApiDebugPage = () => {
                       </div>
                     ))}
                   </div>
+
+                  {/* Pagination controls */}
+                  {totalPages > 1 && (
+                    <div className="flex justify-center my-4">
+                      <div className="flex space-x-1">
+                        {/* First page button */}
+                        <button
+                          onClick={() => setPage(0)}
+                          disabled={page === 0}
+                          className={`px-3 py-1 rounded text-sm ${
+                            page === 0
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-700 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          &laquo;
+                        </button>
+
+                        {/* Previous page button */}
+                        <button
+                          onClick={() => setPage(Math.max(0, page - 1))}
+                          disabled={page === 0}
+                          className={`px-3 py-1 rounded text-sm ${
+                            page === 0
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-700 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          &lsaquo;
+                        </button>
+
+                        {/* Generate page number buttons */}
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          // Calculate which page numbers to show
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            // Show all pages if 5 or fewer
+                            pageNum = i;
+                          } else if (page < 2) {
+                            // At the beginning
+                            pageNum = i;
+                          } else if (page > totalPages - 3) {
+                            // At the end
+                            pageNum = totalPages - 5 + i;
+                          } else {
+                            // In the middle
+                            pageNum = page - 2 + i;
+                          }
+
+                          // Only render if pageNum is valid
+                          if (pageNum >= 0 && pageNum < totalPages) {
+                            return (
+                              <button
+                                key={pageNum}
+                                onClick={() => setPage(pageNum)}
+                                className={`px-3 py-1 rounded text-sm ${
+                                  pageNum === page
+                                    ? 'bg-blue-500 text-white font-medium'
+                                    : 'bg-gray-700 hover:bg-gray-600 text-white'
+                                }`}
+                              >
+                                {pageNum + 1}
+                              </button>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        {/* Next page button */}
+                        <button
+                          onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                          disabled={page === totalPages - 1}
+                          className={`px-3 py-1 rounded text-sm ${
+                            page === totalPages - 1
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-700 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          &rsaquo;
+                        </button>
+
+                        {/* Last page button */}
+                        <button
+                          onClick={() => setPage(totalPages - 1)}
+                          disabled={page === totalPages - 1}
+                          className={`px-3 py-1 rounded text-sm ${
+                            page === totalPages - 1
+                              ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                              : 'bg-blue-700 hover:bg-blue-600 text-white'
+                          }`}
+                        >
+                          &raquo;
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : !loading && !error ? (
                 <div className="text-center py-12 text-gray-400">
@@ -884,6 +1297,17 @@ const ApiDebugPage = () => {
                     >
                       <BarChart className="w-4 h-4 mr-2" />
                       <span>Outcomes</span>
+                    </button>
+                    <button
+                      className={`flex items-center px-4 py-2 ${
+                        selectedTab === 'testScores'
+                          ? 'bg-blue-800 border-b-2 border-blue-500'
+                          : 'hover:bg-gray-700'
+                      }`}
+                      onClick={() => setSelectedTab('testScores')}
+                    >
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      <span>Test Scores</span>
                     </button>
                   </div>
 
