@@ -8,7 +8,20 @@ const defaultProfile = {
   essayStrength: 3,
   intendedMajor: '',
   earlyDecision: false,
-  showAdvancedProfile: false
+  showAdvancedProfile: false,
+
+  // New fields for enhanced calculator
+  satSubjectTests: [],
+  apCount: 0,
+  ibCount: 0,
+  honorsCount: 0,
+  demographics: {
+    race: '',
+    gender: '',
+    firstGeneration: false,
+    legacy: false,
+    state: ''
+  }
 };
 
 const StudentProfileContext = createContext();
@@ -27,10 +40,24 @@ export const StudentProfileProvider = ({ children }) => {
 
   const updateProfile = (field, value) => {
     setStudentProfile(prev => {
-      const newProfile = {
-        ...prev,
-        [field]: value
-      };
+      let newProfile;
+
+      // Handle nested updates (e.g., demographics)
+      if (field.includes('.')) {
+        const [parent, child] = field.split('.');
+        newProfile = {
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        };
+      } else {
+        newProfile = {
+          ...prev,
+          [field]: value
+        };
+      }
 
       // Save to localStorage
       try {

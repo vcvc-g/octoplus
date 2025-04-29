@@ -195,7 +195,19 @@ class CollegeScorecardService {
       'latest.student.demographics.first_generation',
       'latest.student.retention_rate.four_year.full_time',
       'latest.earnings.6_yrs_after_entry.median',
-      'latest.earnings.10_yrs_after_entry.median'
+      'latest.earnings.10_yrs_after_entry.median',
+
+      // Additional fields for enhanced calculator
+      'latest.admissions.admission_rate.by_gender',
+      'latest.admissions.sat_scores.midpoint',
+      'latest.admissions.act_scores.midpoint',
+      'latest.admissions.admissions_yield',
+      'latest.academics.program_percentage',
+      'latest.student.share_firstgeneration',
+      'latest.admissions.sat_scores.25th_percentile.writing',
+      'latest.admissions.sat_scores.75th_percentile.writing',
+      'latest.admissions.act_scores.25th_percentile.cumulative',
+      'latest.admissions.act_scores.75th_percentile.cumulative'
     ];
 
     if (detailed) {
@@ -206,9 +218,12 @@ class CollegeScorecardService {
         'latest.admissions.admission_rate.by_ope_id',
         'latest.admissions.sat_scores.midpoint.critical_reading',
         'latest.admissions.sat_scores.midpoint.math',
-        'latest.admissions.act_scores.25th_percentile.cumulative',
-        'latest.admissions.act_scores.75th_percentile.cumulative',
-        'latest.academics.program_percentage',
+        'latest.admissions.sat_scores.midpoint.writing',
+        'latest.admissions.act_scores.midpoint.english',
+        'latest.admissions.act_scores.midpoint.math',
+        'latest.admissions.act_scores.midpoint.writing',
+        'latest.admissions.act_scores.midpoint.science',
+        'latest.academics.program_available',
         'latest.completion.rate_suppressed.overall',
         'latest.aid.median_debt.completers.overall',
         'latest.student.part_time_share',

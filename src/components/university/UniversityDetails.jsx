@@ -5,7 +5,9 @@ import {
   calculateAcceptanceChance,
   getAcademicMatchStrength,
   getRatingStrength,
-  getMajorCompetitiveness
+  getMajorCompetitiveness,
+  getColorForScore,
+  getBackgroundForScore
 } from '../../utils/admissionsCalculator';
 import { getPrestigeLevel } from '../../utils/prestigeCalculator';
 
@@ -119,51 +121,85 @@ const UniversityDetails = ({ university }) => {
             <div className="space-y-3 text-sm">
               {/* Academic Match */}
               <ProgressBar
-                label="Academic Match"
-                strength={getAcademicMatchStrength(studentProfile, university)}
+                label="Academic Factors"
+                strength={{
+                  text: `${admissionChance.components?.academic || 0}%`,
+                  color: getColorForScore(admissionChance.components?.academic || 0),
+                  width: `w-[${admissionChance.components?.academic || 0}%]`,
+                  background: getBackgroundForScore(admissionChance.components?.academic || 0)
+                }}
               />
 
-              {/* Show advanced metrics only if advanced profile is enabled */}
-              {studentProfile.showAdvancedProfile && (
-                <>
-                  <ProgressBar
-                    label="Course Rigor"
-                    strength={getRatingStrength(studentProfile.courseRigor)}
-                  />
+              {/* Course Rigor */}
+              <ProgressBar
+                label="Course Rigor"
+                strength={{
+                  text: `${admissionChance.components?.rigor || 0}%`,
+                  color: getColorForScore(admissionChance.components?.rigor || 0),
+                  width: `w-[${admissionChance.components?.rigor || 0}%]`,
+                  background: getBackgroundForScore(admissionChance.components?.rigor || 0)
+                }}
+              />
 
-                  <ProgressBar
-                    label="Extracurriculars"
-                    strength={getRatingStrength(studentProfile.extracurriculars)}
-                  />
+              {/* Application Strength */}
+              <ProgressBar
+                label="Application Strength"
+                strength={{
+                  text: `${admissionChance.components?.applicationStrength || 0}%`,
+                  color: getColorForScore(admissionChance.components?.applicationStrength || 0),
+                  width: `w-[${admissionChance.components?.applicationStrength || 0}%]`,
+                  background: getBackgroundForScore(admissionChance.components?.applicationStrength || 0)
+                }}
+              />
 
-                  <ProgressBar
-                    label="Essay Strength"
-                    strength={getRatingStrength(studentProfile.essayStrength)}
-                  />
-                </>
-              )}
-
-              {/* Major competitiveness if a major is selected */}
-              {studentProfile.intendedMajor && (
+              {/* Only show demographic factors if advanced profile is enabled */}
+              {studentProfile.showAdvancedProfile && studentProfile.demographics && (
                 <ProgressBar
-                  label="Major Competitiveness"
-                  strength={getMajorCompetitiveness(studentProfile.intendedMajor)}
+                  label="Demographic Factors"
+                  strength={{
+                    text: `${admissionChance.components?.demographic || 0}%`,
+                    color: getColorForScore(admissionChance.components?.demographic || 0),
+                    width: `w-[${admissionChance.components?.demographic || 0}%]`,
+                    background: getBackgroundForScore(admissionChance.components?.demographic || 0)
+                  }}
                 />
               )}
 
-              {/* Early decision advantage */}
-              {studentProfile.showAdvancedProfile && (
+              {/* Major fit */}
+              {studentProfile.intendedMajor && (
+                <ProgressBar
+                  label="Major Competitiveness"
+                  strength={{
+                    text: `${admissionChance.components?.majorFit || 0}%`,
+                    color: getColorForScore(admissionChance.components?.majorFit || 0),
+                    width: `w-[${admissionChance.components?.majorFit || 0}%]`,
+                    background: getBackgroundForScore(admissionChance.components?.majorFit || 0)
+                  }}
+                />
+              )}
+
+              {/* Early decision */}
+              {admissionChance.components?.earlyDecision > 0 && (
                 <div>
                   <div className="flex justify-between mb-1">
                     <span>Early Decision Advantage</span>
-                    <span className={studentProfile.earlyDecision ? "text-green-400" : "text-gray-400"}>
-                      {studentProfile.earlyDecision ? "Yes (+10%)" : "No"}
-                    </span>
+                    <span className="text-green-400">+{admissionChance.components.earlyDecision}%</span>
                   </div>
                   <div className="w-full bg-gray-700 rounded-full h-1.5">
-                    <div className={`h-1.5 rounded-full ${
-                      studentProfile.earlyDecision ? "bg-green-500 w-4/5" : "bg-gray-600 w-0"
-                    }`}></div>
+                    <div className="h-1.5 rounded-full bg-green-500 w-2/5"></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Yield protection */}
+              {admissionChance.components?.yieldProtection < 0 && (
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span>Yield Protection Factor</span>
+                    <span className="text-red-400">{admissionChance.components.yieldProtection}%</span>
+                  </div>
+                  <div className="w-full bg-gray-700 rounded-full h-1.5">
+                    <div className="h-1.5 rounded-full bg-red-500 w-1/5"></div>
                   </div>
                 </div>
               )}
