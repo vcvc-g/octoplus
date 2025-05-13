@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "An interactive tool for exploring top universities and estimating admission chances",
   "private": true,
+  "type": "module",
   "dependencies": {
     "autoprefixer": "^10.4.14",
     "axios": "^1.9.0",
@@ -23,7 +24,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "update-data": "node scripts/updateUniversityData.js"
   },
   "eslintConfig": {
     "extends": [

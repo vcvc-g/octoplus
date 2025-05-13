@@ -1,7 +1,6 @@
+// src/components/university/UniversityCard.jsx - Enhanced to use precalculated admission chances
 import React from 'react';
-import { calculateAcceptanceChance } from '../../utils/admissionsCalculator';
 import { getPrestigeLevel } from '../../utils/prestigeCalculator';
-import { useStudentProfile } from '../../context/StudentProfileContext';
 
 const UniversityCard = ({
   university,
@@ -9,8 +8,8 @@ const UniversityCard = ({
   highlightGlow,
   onClick
 }) => {
-  const { studentProfile } = useStudentProfile();
-  const admissionChance = calculateAcceptanceChance(university, studentProfile);
+  // Use the precalculated admission chance (efficiency improvement)
+  const admissionChance = university.admissionChance;
   const isHighChance = admissionChance.score >= 70;
   const isTarget = admissionChance.score >= 40 && admissionChance.score < 70;
 
@@ -69,6 +68,15 @@ const UniversityCard = ({
     }
   };
 
+  // Get ranking type (USN or QS)
+  const getRank = () => {
+    if (university.usnRank) return { type: 'USN', rank: university.usnRank };
+    if (university.qsRank) return { type: 'QS', rank: university.qsRank };
+    return { type: '', rank: 'N/A' };
+  };
+
+  const rankInfo = getRank();
+
   return (
     <div
       className={`cursor-pointer flex flex-col p-3 rounded transition-all duration-300 transform ${getCardBackground()}`}
@@ -78,7 +86,7 @@ const UniversityCard = ({
         <div className={`relative w-12 h-12 rounded-full flex items-center justify-center mr-3 overflow-hidden ${getRankBadgeStyle()}`}>
           <div className={`absolute inset-0 rounded-full ${getRankRingStyle()} transition-all duration-300`} />
           <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-700 flex items-center justify-center text-white font-bold text-lg">
-            {university.qsRank}
+            {rankInfo.rank}
           </div>
         </div>
         <div className="flex-1">
@@ -90,28 +98,36 @@ const UniversityCard = ({
         </div>
       </div>
 
-      {/* New section: Student information */}
-      {university.studentCount && (
-        <div className="bg-gray-800/40 p-2 rounded mb-2 text-xs">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Students:</span>
-            <span className="font-medium">{formatNumber(university.studentCount)}</span>
-          </div>
-
-          {/* Show tuition if available */}
-          {university.tuitionInState > 0 && (
-            <div className="flex justify-between items-center mt-1">
-              <span className="text-gray-400">Tuition:</span>
-              <span className="font-medium">${formatNumber(university.tuitionInState)}/yr</span>
-            </div>
-          )}
+      {/* Student information */}
+      <div className="bg-gray-800/40 p-2 rounded mb-2 text-xs">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Students:</span>
+          <span className="font-medium">{formatNumber(university.studentCount)}</span>
         </div>
-      )}
+
+        {/* Show tuition if available */}
+        <div className="flex justify-between items-center mt-1">
+          <span className="text-gray-400">Tuition:</span>
+          <span className="font-medium">${formatNumber(university.tuitionInState)}/yr</span>
+        </div>
+
+        {/* Show demographic highlights if available */}
+        {university.demographics && (
+          <div className="flex justify-between items-center mt-1">
+            <span className="text-gray-400">Gender Ratio:</span>
+            <span className="font-medium">
+              {university.demographics.men
+                ? `${Math.round(university.demographics.men * 100)}% M / ${Math.round(university.demographics.women * 100)}% F`
+                : 'N/A'}
+            </span>
+          </div>
+        )}
+      </div>
 
       <div className="mt-auto text-xs">
         <div className="flex justify-between items-center mb-1">
-          <span className="text-gray-400">QS Rank:</span>
-          <span className="font-medium">{university.qsRank}</span>
+          <span className="text-gray-400">{rankInfo.type} Rank:</span>
+          <span className="font-medium">{rankInfo.rank}</span>
         </div>
         <div className="flex justify-between items-center mb-1">
           <span className="text-gray-400">Acceptance:</span>
@@ -119,7 +135,7 @@ const UniversityCard = ({
         </div>
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Prestige:</span>
-          <span>{prestigeStars(getPrestigeLevel(university.qsRank))}</span>
+          <span>{prestigeStars(getPrestigeLevel(rankInfo.rank))}</span>
         </div>
 
         {/* SAT Range if available */}

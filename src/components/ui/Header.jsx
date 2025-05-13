@@ -1,160 +1,230 @@
-// src/components/ui/Header.jsx - Enhanced with advanced search
-import React, { useState } from 'react';
-import { filterOptions as options } from '../../data/filterOptions';
-import { Search, Sliders, X } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useStudentProfile } from '../../context/StudentProfileContext';
+import { calculateAcceptanceChance } from '../../utils/admissionsCalculator';
+import { BackgroundEffects, Header, Pagination } from '../ui';
+import UniversityCard from './UniversityCard';
+import UniversityDetails from './UniversityDetails';
 
-const Header = ({
-  searchTerm,
-  setSearchTerm,
-  filterRegion,
-  setFilterRegion,
-  filterType,
-  setFilterType,
-  filterAcceptance,
-  setFilterAcceptance,
-  onSearch,
-  showAdvancedSearch = false,
-  setShowAdvancedSearch
-}) => {
-  const [localSearchTerm, setLocalSearchTerm] = useState(searchTerm);
-  const [localRegion, setLocalRegion] = useState(filterRegion);
-  const [localType, setLocalType] = useState(filterType);
-  const [localAcceptance, setLocalAcceptance] = useState(filterAcceptance);
+// Import data directly from JSON
+import universityData from '../../data/usnewsTop100.json';
 
-  // Handle search submission
-  const handleSearch = (e) => {
-    e.preventDefault();
+const UniversityExplorer = () => {
+  const animateBackground = true;
+  const [highlightGlow, setHighlightGlow] = useState(false);
+  const [selectedUniversity, setSelectedUniversity] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRegion, setFilterRegion] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [filterAcceptance, setFilterAcceptance] = useState(0);
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [filterMajor, setFilterMajor] = useState('');
 
-    // Apply all filters at once
-    setSearchTerm(localSearchTerm);
-    setFilterRegion(localRegion);
-    setFilterType(localType);
-    setFilterAcceptance(localAcceptance);
+  // Use student profile context for admission calculations
+  const { studentProfile } = useStudentProfile();
 
-    if (onSearch) {
-      onSearch();
+  // Universities state
+  const [universities, setUniversities] = useState([]);
+  const [filteredUniversities, setFilteredUniversities] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [universitiesPerPage] = useState(12);
+
+  // Load universities on mount
+  useEffect(() => {
+    // Add calculated admission chances to each university
+    const universitiesWithChances = universityData.universities.map(university => {
+      const admissionChance = calculateAcceptanceChance(university, studentProfile);
+      return {
+        ...university,
+        admissionChance
+      };
+    });
+
+    setUniversities(universitiesWithChances);
+    setLoading(false);
+  }, [studentProfile]); // Recalculate when student profile changes
+
+  // Apply filters
+  useEffect(() => {
+    let filtered = [...universities];
+
+    // Apply search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(uni =>
+        uni.name.toLowerCase().includes(term) ||
+        uni.location.toLowerCase().includes(term)
+      );
     }
-  };
 
-  // Clear all filters
-  const clearFilters = () => {
-    setLocalSearchTerm('');
-    setLocalRegion('All');
-    setLocalType('All');
-    setLocalAcceptance(0);
+    // Apply region filter
+    if (filterRegion !== 'All') {
+      // This is a simplified version - you might need to adjust based on your data
+      filtered = filtered.filter(uni => {
+        const state = uni.location.split(', ')[1];
 
-    // Apply cleared filters
-    setSearchTerm('');
-    setFilterRegion('All');
-    setFilterType('All');
-    setFilterAcceptance(0);
+        // Map regions to states (simplified)
+        const regionToStates = {
+          'Northeast': ['ME', 'NH', 'VT', 'MA', 'RI', 'CT', 'NY', 'NJ', 'PA'],
+          'Southeast': ['DE', 'MD', 'VA', 'WV', 'NC', 'SC', 'GA', 'FL', 'KY', 'TN', 'AL', 'MS', 'AR', 'LA'],
+          'Midwest': ['OH', 'IN', 'MI', 'IL', 'WI', 'MN', 'IA', 'MO', 'ND', 'SD', 'NE', 'KS'],
+          'Southwest': ['TX', 'OK', 'NM', 'AZ'],
+          'West': ['CO', 'WY', 'MT', 'ID', 'WA', 'OR', 'UT', 'NV', 'CA', 'AK', 'HI']
+        };
 
-    if (onSearch) {
-      onSearch();
+        return regionToStates[filterRegion]?.includes(state);
+      });
     }
-  };
+
+    // Apply type filter
+    if (filterType !== 'All') {
+      filtered = filtered.filter(uni => uni.type === filterType);
+    }
+
+    // Apply acceptance rate filter
+    if (filterAcceptance > 0) {
+      const acceptanceRanges = [
+        { min: 0, max: 100 },  // All
+        { min: 0, max: 5 },    // Very Selective (<5%)
+        { min: 5, max: 15 },   // Selective (5-15%)
+        { min: 15, max: 30 },  // Moderate (15-30%)
+        { min: 30, max: 100 }  // High (>30%)
+      ];
+
+      const range = acceptanceRanges[filterAcceptance];
+      filtered = filtered.filter(uni =>
+        uni.acceptanceRate >= range.min &&
+        uni.acceptanceRate < range.max
+      );
+    }
+
+    // Apply major filter (if available in topPrograms)
+    if (filterMajor) {
+      filtered = filtered.filter(uni =>
+        uni.topPrograms?.some(program =>
+          program.toLowerCase().includes(filterMajor.toLowerCase())
+        )
+      );
+    }
+
+    // Sort by admission chances (highest to lowest)
+    filtered.sort((a, b) => b.admissionChance.score - a.admissionChance.score);
+
+    setFilteredUniversities(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  }, [universities, searchTerm, filterRegion, filterType, filterAcceptance, filterMajor]);
+
+  // Calculate current page universities
+  const indexOfLastUniversity = currentPage * universitiesPerPage;
+  const indexOfFirstUniversity = indexOfLastUniversity - universitiesPerPage;
+  const currentUniversities = filteredUniversities.slice(indexOfFirstUniversity, indexOfLastUniversity);
+
+  // Change page
+  const paginate = pageNumber => setCurrentPage(pageNumber);
+
+  // Handle search
+  const handleSearch = useCallback(() => {
+    // Already handled by useEffect
+  }, []);
+
+  // Background animation effect
+  useEffect(() => {
+    const glowInterval = setInterval(() => {
+      setHighlightGlow(prev => !prev);
+    }, 2000);
+
+    return () => clearInterval(glowInterval);
+  }, []);
 
   return (
-    <div className="bg-gradient-to-r from-blue-900 to-blue-800 p-4 flex flex-col justify-between shadow-lg relative z-10 backdrop-blur-sm">
-      <div className="absolute inset-0 bg-blue-500 opacity-5 animate-pulse"></div>
+    <div className="flex flex-col h-full bg-gray-900 text-white relative overflow-hidden">
+      {/* Animated background elements */}
+      <BackgroundEffects animateBackground={animateBackground} />
 
-      {/* Top row with title and search */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold relative">
-          QS Top Universities Explorer
-          <span className="absolute -bottom-1 left-0 w-1/2 h-1 bg-blue-400 rounded-full"></span>
-        </h1>
+      {/* Enhanced Header with advanced search */}
+      <Header
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        filterRegion={filterRegion}
+        setFilterRegion={setFilterRegion}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        filterAcceptance={filterAcceptance}
+        setFilterAcceptance={setFilterAcceptance}
+        onSearch={handleSearch}
+        showAdvancedSearch={showAdvancedSearch}
+        setShowAdvancedSearch={setShowAdvancedSearch}
+        filterMajor={filterMajor}
+        setFilterMajor={setFilterMajor}
+      />
 
-        <div className="flex items-center gap-2">
-          <form onSubmit={handleSearch} className="group relative flex-1">
-            <input
-              type="text"
-              placeholder="Search universities..."
-              className="w-64 px-4 py-2 pl-10 bg-gray-800 rounded text-white border-2 border-transparent focus:border-blue-500 focus:outline-none transition-all duration-300 shadow-inner"
-              value={localSearchTerm}
-              onChange={(e) => setLocalSearchTerm(e.target.value)}
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <span className="absolute inset-0 rounded border-2 border-blue-400 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></span>
-          </form>
+      {/* Main content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* University grid with pagination */}
+        <div className={`${selectedUniversity ? 'w-2/3' : 'w-full'} p-4 overflow-y-auto`}>
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-lg text-blue-300">Loading universities...</p>
+              </div>
+            </div>
+          ) : filteredUniversities.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <div className="text-lg mb-2">No matching universities found</div>
+              <div className="text-sm text-gray-500">Try adjusting your filters</div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                <div className="text-sm text-gray-400">
+                  Showing {currentUniversities.length} of {filteredUniversities.length} results
+                  <span className="ml-2 px-2 py-0.5 bg-blue-900/50 rounded-full text-xs">
+                    Sorted by your admission chances
+                  </span>
+                </div>
+              </div>
 
-          <button
-            onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
-            className={`p-2 rounded ${showAdvancedSearch ? 'bg-blue-600' : 'bg-gray-800'} hover:bg-blue-700 transition-colors`}
-            title="Toggle advanced search"
-          >
-            <Sliders className="h-5 w-5" />
-          </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {currentUniversities.map(university => (
+                  <UniversityCard
+                    key={university.id}
+                    university={university}
+                    isSelected={selectedUniversity?.id === university.id}
+                    highlightGlow={highlightGlow}
+                    onClick={() => setSelectedUniversity(university)}
+                  />
+                ))}
+              </div>
 
-          {(localSearchTerm || localRegion !== 'All' || localType !== 'All' || localAcceptance !== 0) && (
-            <button
-              onClick={clearFilters}
-              className="p-2 rounded bg-red-800 hover:bg-red-700 transition-colors"
-              title="Clear all filters"
-            >
-              <X className="h-5 w-5" />
-            </button>
+              {/* Pagination */}
+              {filteredUniversities.length > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={Math.ceil(filteredUniversities.length / universitiesPerPage)}
+                  onPageChange={paginate}
+                  totalItems={filteredUniversities.length}
+                  itemsPerPage={universitiesPerPage}
+                />
+              )}
+            </>
           )}
         </div>
+
+        {/* University details (only shown when a university is selected) */}
+        {selectedUniversity && (
+          <div className="w-1/3 h-full">
+            <UniversityDetails
+              university={selectedUniversity}
+              onClose={() => setSelectedUniversity(null)}
+            />
+          </div>
+        )}
       </div>
-
-      {/* Advanced search filters */}
-      {showAdvancedSearch && (
-        <div className="mt-4 p-3 bg-gray-800/50 backdrop-blur-sm rounded-lg border border-gray-700 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="group relative">
-            <label className="block text-xs text-gray-400 mb-1">Region</label>
-            <select
-              className="w-full appearance-none px-3 py-2 bg-gray-800 rounded text-white border border-gray-700 focus:border-blue-500 focus:outline-none transition-all duration-300 pr-8 shadow-inner"
-              value={localRegion}
-              onChange={(e) => setLocalRegion(e.target.value)}
-            >
-              {options.regions.map(region => (
-                <option key={region} value={region}>{region}</option>
-              ))}
-            </select>
-            <div className="absolute right-2 top-7 pointer-events-none text-blue-400">▼</div>
-          </div>
-
-          <div className="group relative">
-            <label className="block text-xs text-gray-400 mb-1">University Type</label>
-            <select
-              className="w-full appearance-none px-3 py-2 bg-gray-800 rounded text-white border border-gray-700 focus:border-blue-500 focus:outline-none transition-all duration-300 pr-8 shadow-inner"
-              value={localType}
-              onChange={(e) => setLocalType(e.target.value)}
-            >
-              {options.types.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-            <div className="absolute right-2 top-7 pointer-events-none text-blue-400">▼</div>
-          </div>
-
-          <div className="group relative">
-            <label className="block text-xs text-gray-400 mb-1">Acceptance Rate</label>
-            <select
-              className="w-full appearance-none px-3 py-2 bg-gray-800 rounded text-white border border-gray-700 focus:border-blue-500 focus:outline-none transition-all duration-300 pr-8 shadow-inner"
-              value={localAcceptance}
-              onChange={(e) => setLocalAcceptance(Number(e.target.value))}
-            >
-              {options.acceptanceRates.map(rate => (
-                <option key={rate.level} value={rate.level}>{rate.name}</option>
-              ))}
-            </select>
-            <div className="absolute right-2 top-7 pointer-events-none text-blue-400">▼</div>
-          </div>
-
-          <div className="md:col-span-3 flex justify-end">
-            <button
-              onClick={handleSearch}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white font-medium transition-colors shadow"
-            >
-              Apply Filters
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-export default Header;
+export default UniversityExplorer;

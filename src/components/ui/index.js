@@ -1,7 +1,7 @@
-// src/components/ui/index.js - Fixed exports
-export { default as ProgressBar } from './ProgressBar';
-export { default as StatsCard } from './StatsCard';
-export { default as RatingSelector } from './RatingSelector';
-export { default as BackgroundEffects } from './BackgroundEffects';
-export { default as Header } from './Header';
-export { default as Pagination } from './Pagination';
+// src/components/ui/index.js - Fixed with extensions
+export { default as ProgressBar } from './ProgressBar.jsx';
+export { default as StatsCard } from './StatsCard.jsx';
+export { default as RatingSelector } from './RatingSelector.jsx';
+export { default as BackgroundEffects } from './BackgroundEffects.jsx';
+export { default as Header } from './Header.jsx';
+export { default as Pagination } from './Pagination.jsx';

@@ -1,6 +1,6 @@
 // src/hooks/useCollegeData.js - Updated with correct API parameter handling
 import { useState, useEffect, useCallback } from 'react';
-import collegeScorecardService from '../services/collegeScorecard';
+import collegeScorecardService from '../services/collegeScorecard.js';
 
 /**
  * Hook to fetch university data from the College Scorecard API
