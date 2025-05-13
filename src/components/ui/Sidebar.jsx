@@ -1,18 +1,29 @@
-// src/components/ui/Sidebar.jsx - Updated with API Debug link
-import React from 'react';
+// src/components/ui/Sidebar.jsx - Updated with collapse functionality
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { School, Mic, Terminal, Settings } from 'lucide-react';
+import { School, Mic, Terminal, Settings, Menu, X } from 'lucide-react';
 
 const Sidebar = () => {
   const location = useLocation();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   return (
-    <div className="h-full bg-gray-900 w-16 md:w-64 flex flex-col border-r border-gray-800">
-      <div className="p-4 flex items-center justify-center md:justify-start">
-        <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-          <span className="text-white font-bold">QS</span>
+    <div className={`h-full bg-gray-900 ${isCollapsed ? 'w-16' : 'w-64'} flex flex-col border-r border-gray-800 transition-all duration-300 ease-in-out`}>
+      <div className="p-4 flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
+            <span className="text-white font-bold">QS</span>
+          </div>
+          {!isCollapsed && <h1 className="ml-3 text-xl font-bold text-white">Explorer</h1>}
         </div>
-        <h1 className="hidden md:block ml-3 text-xl font-bold text-white">Explorer</h1>
+
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="text-gray-400 hover:text-white transition-colors duration-200"
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? <Menu size={20} /> : <X size={20} />}
+        </button>
       </div>
 
       <nav className="flex-1 pt-8">
@@ -25,9 +36,10 @@ const Sidebar = () => {
                   ? 'bg-blue-900/50 border-l-4 border-blue-500'
                   : 'border-l-4 border-transparent hover:bg-gray-800/50'
               }`}
+              title="University Explorer"
             >
               <School className="h-5 w-5 text-blue-400" />
-              <span className="hidden md:block ml-4 text-white">University Explorer</span>
+              {!isCollapsed && <span className="ml-4 text-white">University Explorer</span>}
             </Link>
           </li>
           <li>
@@ -38,9 +50,10 @@ const Sidebar = () => {
                   ? 'bg-blue-900/50 border-l-4 border-blue-500'
                   : 'border-l-4 border-transparent hover:bg-gray-800/50'
               }`}
+              title="Voice Assistant"
             >
               <Mic className="h-5 w-5 text-blue-400" />
-              <span className="hidden md:block ml-4 text-white">Voice Assistant</span>
+              {!isCollapsed && <span className="ml-4 text-white">Voice Assistant</span>}
             </Link>
           </li>
           <li>
@@ -51,16 +64,17 @@ const Sidebar = () => {
                   ? 'bg-blue-900/50 border-l-4 border-blue-500'
                   : 'border-l-4 border-transparent hover:bg-gray-800/50'
               }`}
+              title="API Debug"
             >
               <Terminal className="h-5 w-5 text-blue-400" />
-              <span className="hidden md:block ml-4 text-white">API Debug</span>
+              {!isCollapsed && <span className="ml-4 text-white">API Debug</span>}
             </Link>
           </li>
         </ul>
       </nav>
 
       <div className="p-4 border-t border-gray-800">
-        <div className="hidden md:block text-xs text-gray-500">University Explorer v1.0</div>
+        {!isCollapsed && <div className="text-xs text-gray-500">University Explorer v1.0</div>}
       </div>
     </div>
   );
