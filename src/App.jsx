@@ -1,4 +1,4 @@
-// src/App.jsx - Simplified version with direct imports
+// src/App.jsx - Fixed imports
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext.jsx';
