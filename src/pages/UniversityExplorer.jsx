@@ -1,13 +1,15 @@
-// src/pages/UniversityExplorer.jsx - Updated with responsive details panel
+// src/pages/UniversityExplorer.jsx - Complete file with all improvements and pagination fixes
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStudentProfile } from '../context/StudentProfileContext';
+import { useFavorites } from '../context/FavoritesContext';
 import { calculateAcceptanceChance } from '../utils/admissionsCalculator';
 import { BackgroundEffects } from '../components/ui';
 import { Header } from '../components/ui';
 import { Pagination } from '../components/ui';
 import { StudentProfile } from '../components/student';
 import { EnhancedUniversityCard, SimpleUniversityDetails } from '../components/university';
-import { X, Maximize2, Minimize2 } from 'lucide-react';
+import UniversityComparison from '../components/university/UniversityComparison';
+import { X, Maximize2, Minimize2, GitCompare } from 'lucide-react';
 
 // Import JSON data directly
 import universityData from '../data/usnewsTop100.json';
@@ -23,12 +25,16 @@ const UniversityExplorer = () => {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [filterMajor, setFilterMajor] = useState('');
 
-  // New state for details panel
+  // Details panel state
   const [detailsExpanded, setDetailsExpanded] = useState(false);
   const [detailsFullScreen, setDetailsFullScreen] = useState(false);
 
-  // Use student profile context for admission calculations
+  // Comparison state
+  const [showComparison, setShowComparison] = useState(false);
+
+  // Context hooks
   const { studentProfile } = useStudentProfile();
+  const { compareList, removeFromCompare, addToCompare } = useFavorites();
 
   // Universities state
   const [universities, setUniversities] = useState([]);
@@ -58,7 +64,12 @@ const UniversityExplorer = () => {
     }
   }, [studentProfile]);
 
-  // Apply filters (same as before)
+  // Show comparison when items are added
+  useEffect(() => {
+    setShowComparison(compareList.some(item => item !== null));
+  }, [compareList]);
+
+  // Apply filters
   useEffect(() => {
     let filtered = [...universities];
 
@@ -121,8 +132,31 @@ const UniversityExplorer = () => {
   const indexOfFirstUniversity = indexOfLastUniversity - universitiesPerPage;
   const currentUniversities = filteredUniversities.slice(indexOfFirstUniversity, indexOfLastUniversity);
 
-  // Change page
-  const handlePageChange = (pageNumber) => setCurrentPage(pageNumber);
+  // Debug logging for pagination
+  useEffect(() => {
+    console.log('Pagination Debug:', {
+      currentPage,
+      universitiesPerPage,
+      totalUniversities: filteredUniversities.length,
+      totalPages: Math.ceil(filteredUniversities.length / universitiesPerPage),
+      indexOfFirstUniversity,
+      indexOfLastUniversity,
+      currentUniversitiesCount: currentUniversities.length
+    });
+  }, [currentPage, filteredUniversities, universitiesPerPage, currentUniversities.length, indexOfFirstUniversity, indexOfLastUniversity]);
+
+  // Change page - with scroll to top
+  const handlePageChange = (pageNumber) => {
+    console.log('Page change requested:', pageNumber);
+    setCurrentPage(pageNumber);
+    // Scroll to top of the universities grid when changing pages
+    setTimeout(() => {
+      const gridElement = document.querySelector('.universities-grid');
+      if (gridElement) {
+        gridElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   // Handle search
   const handleSearch = useCallback(() => {
@@ -183,9 +217,9 @@ const UniversityExplorer = () => {
       <StudentProfile />
 
       {/* Main content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden" style={{ marginBottom: showComparison ? '400px' : '0' }}>
         {/* University grid */}
-        <div className={`${getGridWidth()} p-4 overflow-y-auto`}>
+        <div className={`${getGridWidth()} p-4 overflow-y-auto universities-grid`}>
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -200,13 +234,24 @@ const UniversityExplorer = () => {
             </div>
           ) : (
             <>
-              <div className="mb-4">
+              <div className="mb-4 flex items-center justify-between">
                 <div className="text-sm text-gray-400">
                   Showing {currentUniversities.length} of {filteredUniversities.length} results
                   <span className="ml-2 px-2 py-0.5 bg-blue-900/50 rounded-full text-xs">
                     Sorted by your admission chances
                   </span>
                 </div>
+
+                {/* Comparison toggle button */}
+                {compareList.some(item => item !== null) && (
+                  <button
+                    onClick={() => setShowComparison(!showComparison)}
+                    className="flex items-center px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm transition-colors"
+                  >
+                    <GitCompare size={14} className="mr-2" />
+                    Compare ({compareList.filter(item => item !== null).length})
+                  </button>
+                )}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -221,14 +266,17 @@ const UniversityExplorer = () => {
                 ))}
               </div>
 
+              {/* Pagination */}
               {filteredUniversities.length > universitiesPerPage && (
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={Math.ceil(filteredUniversities.length / universitiesPerPage)}
-                  onPageChange={handlePageChange}
-                  totalItems={filteredUniversities.length}
-                  itemsPerPage={universitiesPerPage}
-                />
+                <div className="mt-8">
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={Math.ceil(filteredUniversities.length / universitiesPerPage)}
+                    onPageChange={handlePageChange}
+                    totalItems={filteredUniversities.length}
+                    itemsPerPage={universitiesPerPage}
+                  />
+                </div>
               )}
             </>
           )}
@@ -242,7 +290,7 @@ const UniversityExplorer = () => {
               <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800">
                 <h3 className="text-lg font-semibold truncate">{selectedUniversity.name}</h3>
                 <div className="flex items-center space-x-2">
-                  {/* Mobile responsive buttons */}
+                  {/* Desktop responsive buttons */}
                   <button
                     onClick={() => setDetailsExpanded(!detailsExpanded)}
                     className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors md:inline-block hidden"
@@ -251,6 +299,7 @@ const UniversityExplorer = () => {
                     {detailsExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
                   </button>
 
+                  {/* Mobile responsive buttons */}
                   <button
                     onClick={() => setDetailsFullScreen(!detailsFullScreen)}
                     className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors md:hidden"
@@ -280,6 +329,22 @@ const UniversityExplorer = () => {
           </div>
         )}
       </div>
+
+      {/* University Comparison Panel */}
+      {showComparison && (
+        <UniversityComparison
+          universities={compareList}
+          onRemove={removeFromCompare}
+          onAdd={() => {
+            // Find first empty slot and show suggestion
+            const emptyIndex = compareList.findIndex(item => item === null);
+            if (emptyIndex !== -1) {
+              // Could add logic to suggest universities here
+              console.log('Add suggestion at index:', emptyIndex);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };
