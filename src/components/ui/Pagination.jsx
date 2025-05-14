@@ -1,4 +1,4 @@
-// src/components/ui/Pagination.jsx - Completely rewritten for reliability
+// src/components/ui/Pagination.jsx - Fixed button click issues
 import React from 'react';
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 
@@ -20,14 +20,14 @@ const Pagination = ({
 
   // Generate page numbers
   const getPageNumbers = () => {
-    const delta = 2; // Number of pages to show on each side of current page
+    const delta = 2;
     const range = [];
     const rangeWithDots = [];
 
     // Always include first page
     range.push(1);
 
-    // Calculate the start and end of the middle range
+    // Calculate middle range
     const start = Math.max(2, currentPage - delta);
     const end = Math.min(totalPages - 1, currentPage + delta);
 
@@ -57,32 +57,36 @@ const Pagination = ({
       rangeWithDots.push(totalPages);
     }
 
-    // Remove duplicates and sort
-    return [...new Set(rangeWithDots)].sort((a, b) => {
-      if (a === '...' && b === '...') return 0;
-      if (a === '...') return typeof b === 'number' ? (b < currentPage ? -1 : 1) : 0;
-      if (b === '...') return typeof a === 'number' ? (a < currentPage ? -1 : 1) : 0;
-      return a - b;
-    });
+    return [...new Set(rangeWithDots)];
   };
 
-  const handleClick = (page) => {
+  // Fixed click handlers with explicit event handling
+  const handleClick = (page, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    console.log('Pagination click:', page);
+
     if (page !== '...' && page !== currentPage && page >= 1 && page <= totalPages) {
-      console.log('Pagination: handleClick called with page:', page);
       onPageChange(page);
     }
   };
 
-  const handlePrevious = () => {
+  const handlePrevious = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     if (currentPage > 1) {
-      console.log('Pagination: Previous clicked, going to page:', currentPage - 1);
+      console.log('Previous clicked, going to page:', currentPage - 1);
       onPageChange(currentPage - 1);
     }
   };
 
-  const handleNext = () => {
+  const handleNext = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     if (currentPage < totalPages) {
-      console.log('Pagination: Next clicked, going to page:', currentPage + 1);
+      console.log('Next clicked, going to page:', currentPage + 1);
       onPageChange(currentPage + 1);
     }
   };
@@ -90,7 +94,7 @@ const Pagination = ({
   const pageNumbers = getPageNumbers();
 
   return (
-    <div className="flex flex-col items-center space-y-4">
+    <div className="flex flex-col items-center space-y-4 relative z-10">
       {/* Results summary */}
       <div className="text-sm text-gray-400">
         Showing <span className="font-semibold text-white">{startItem}</span> to{' '}
@@ -98,18 +102,24 @@ const Pagination = ({
         <span className="font-semibold text-white">{totalItems}</span> results
       </div>
 
-      {/* Pagination controls */}
-      <nav className="flex items-center space-x-2" aria-label="Pagination">
+      {/* Pagination controls with fixed z-index and pointer events */}
+      <nav
+        className="flex items-center space-x-2 relative z-20"
+        aria-label="Pagination"
+        style={{ pointerEvents: 'auto' }}
+      >
         {/* Previous button */}
         <button
           onClick={handlePrevious}
           disabled={currentPage === 1}
-          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors transform hover:scale-105 ${
             currentPage === 1
               ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
+              : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-blue-800'
           }`}
           aria-label="Go to previous page"
+          type="button"
+          style={{ pointerEvents: currentPage === 1 ? 'none' : 'auto' }}
         >
           <ChevronLeft className="w-4 h-4 mr-1" />
           Previous
@@ -134,14 +144,16 @@ const Pagination = ({
             return (
               <button
                 key={pageNum}
-                onClick={() => handleClick(pageNum)}
-                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                onClick={(e) => handleClick(pageNum, e)}
+                className={`px-3 py-2 text-sm font-medium rounded-md transition-all transform hover:scale-105 ${
                   isCurrentPage
-                    ? 'bg-blue-600 text-white border border-blue-500'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500'
+                    ? 'bg-blue-600 text-white border border-blue-500 scale-105'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-gray-500'
                 }`}
                 aria-label={`Go to page ${pageNum}`}
                 aria-current={isCurrentPage ? 'page' : undefined}
+                type="button"
+                style={{ pointerEvents: 'auto' }}
               >
                 {pageNum}
               </button>
@@ -153,12 +165,14 @@ const Pagination = ({
         <button
           onClick={handleNext}
           disabled={currentPage === totalPages}
-          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+          className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors transform hover:scale-105 ${
             currentPage === totalPages
               ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500'
+              : 'bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 active:bg-blue-800'
           }`}
           aria-label="Go to next page"
+          type="button"
+          style={{ pointerEvents: currentPage === totalPages ? 'none' : 'auto' }}
         >
           Next
           <ChevronRight className="w-4 h-4 ml-1" />
@@ -177,12 +191,15 @@ const Pagination = ({
             onChange={(e) => {
               const page = parseInt(e.target.value, 10);
               if (page >= 1 && page <= totalPages && page !== currentPage) {
-                console.log('Pagination: Quick jump to page:', page);
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Quick jump to page:', page);
                 onPageChange(page);
               }
             }}
             className="w-16 px-2 py-1 text-center bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             aria-label="Jump to page number"
+            style={{ pointerEvents: 'auto' }}
           />
           <span className="text-gray-400">of {totalPages}</span>
         </div>

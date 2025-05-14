@@ -1,9 +1,9 @@
-// src/App.jsx - Updated with all new providers and features
+// src/App.jsx - Updated with top navigation
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { StudentProfileProvider } from './context/StudentProfileContext.jsx';
 import { FavoritesProvider } from './context/FavoritesContext.jsx';
-import Sidebar from './components/ui/Sidebar.jsx';
+import TopNavigation from './components/ui/TopNavigation.jsx';
 import UniversityVoiceChat from './pages/UniversityVoiceChat.jsx';
 import ApiDebugPage from './pages/ApiDebugPage.jsx';
 import UniversityExplorer from './pages/UniversityExplorer.jsx';
@@ -13,9 +13,9 @@ function App() {
     <StudentProfileProvider>
       <FavoritesProvider>
         <Router>
-          <div className="flex h-screen">
-            {/* Sidebar */}
-            <Sidebar />
+          <div className="flex flex-col h-screen">
+            {/* Top Navigation */}
+            <TopNavigation />
 
             {/* Main content area */}
             <div className="flex-1 overflow-hidden">
