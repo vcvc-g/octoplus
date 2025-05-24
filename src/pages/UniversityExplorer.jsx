@@ -1,7 +1,8 @@
-// src/pages/UniversityExplorer.jsx - Moved search to above cards
+// src/pages/UniversityExplorer.jsx - Updated with light theme support
 import React, { useState, useEffect, useCallback } from 'react';
 import { useStudentProfile } from '../context/StudentProfileContext';
 import { useFavorites } from '../context/FavoritesContext';
+import { useTheme } from '../context/ThemeContext';
 import { calculateAcceptanceChance } from '../utils/admissionsCalculator';
 import { BackgroundEffects } from '../components/ui';
 import { StudentProfile } from '../components/student';
@@ -16,6 +17,7 @@ import universityData from '../data/usnewsTop100.json';
 
 const UniversityExplorer = () => {
   const animateBackground = true;
+  const { isLight } = useTheme();
   const [highlightGlow, setHighlightGlow] = useState(false);
   const [selectedUniversity, setSelectedUniversity] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -186,7 +188,9 @@ const UniversityExplorer = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-900 text-white relative overflow-hidden">
+    <div className={`flex flex-col h-full relative overflow-hidden transition-colors duration-200 ${
+      isLight ? 'bg-white text-gray-900' : 'bg-gray-900 text-white'
+    }`}>
       {/* Background effects - fixed positioning to prevent scroll interference */}
       <div className="fixed inset-0 -z-10">
         <BackgroundEffects animateBackground={animateBackground} />
@@ -231,7 +235,11 @@ const UniversityExplorer = () => {
                 <div className="mt-3 flex justify-end">
                   <button
                     onClick={() => setShowComparison(!showComparison)}
-                    className="flex items-center px-3 py-1 bg-purple-600 hover:bg-purple-700 rounded text-sm transition-colors"
+                    className={`flex items-center px-3 py-1 rounded text-sm transition-colors ${
+                      isLight
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    }`}
                   >
                     <GitCompare size={14} className="mr-2" />
                     Compare ({compareList.filter(item => item !== null).length})
@@ -244,13 +252,19 @@ const UniversityExplorer = () => {
               <div className="flex items-center justify-center h-64">
                 <div className="text-center">
                   <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-lg text-blue-300">Loading universities...</p>
+                  <p className={`text-lg ${isLight ? 'text-blue-600' : 'text-blue-300'}`}>
+                    Loading universities...
+                  </p>
                 </div>
               </div>
             ) : filteredUniversities.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-64 text-gray-400">
+              <div className={`flex flex-col items-center justify-center h-64 ${
+                isLight ? 'text-gray-600' : 'text-gray-400'
+              }`}>
                 <div className="text-lg mb-2">No matching universities found</div>
-                <div className="text-sm text-gray-500">Try adjusting your filters</div>
+                <div className={`text-sm ${isLight ? 'text-gray-500' : 'text-gray-500'}`}>
+                  Try adjusting your filters
+                </div>
               </div>
             ) : (
               <>
@@ -285,15 +299,25 @@ const UniversityExplorer = () => {
 
         {/* University details panel */}
         {selectedUniversity && (
-          <div className={`${getDetailsWidth()} flex flex-col border-l border-gray-700`}>
+          <div className={`${getDetailsWidth()} flex flex-col border-l transition-colors ${
+            isLight ? 'border-gray-200' : 'border-gray-700'
+          }`}>
             {/* Details controls bar */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800 flex-shrink-0">
+            <div className={`flex items-center justify-between p-3 border-b flex-shrink-0 ${
+              isLight
+                ? 'bg-gray-100 border-gray-200'
+                : 'bg-gray-800 border-gray-700'
+            }`}>
               <h3 className="text-lg font-semibold truncate">{selectedUniversity.name}</h3>
               <div className="flex items-center space-x-2">
                 {/* Desktop responsive buttons */}
                 <button
                   onClick={() => setDetailsExpanded(!detailsExpanded)}
-                  className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors md:inline-block hidden"
+                  className={`p-1 rounded transition-colors md:inline-block hidden ${
+                    isLight
+                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
                   title={detailsExpanded ? "Collapse panel" : "Expand panel"}
                 >
                   {detailsExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -302,7 +326,11 @@ const UniversityExplorer = () => {
                 {/* Mobile responsive buttons */}
                 <button
                   onClick={() => setDetailsFullScreen(!detailsFullScreen)}
-                  className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors md:hidden"
+                  className={`p-1 rounded transition-colors md:hidden ${
+                    isLight
+                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
                   title={detailsFullScreen ? "Exit full screen" : "Full screen"}
                 >
                   {detailsFullScreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -310,7 +338,11 @@ const UniversityExplorer = () => {
 
                 <button
                   onClick={() => setSelectedUniversity(null)}
-                  className="p-1 rounded bg-gray-700 hover:bg-gray-600 transition-colors"
+                  className={`p-1 rounded transition-colors ${
+                    isLight
+                      ? 'bg-gray-200 hover:bg-gray-300 text-gray-600'
+                      : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                  }`}
                   title="Close details"
                 >
                   <X size={16} />
